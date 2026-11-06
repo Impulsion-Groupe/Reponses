@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Impulsion Groupe</title>
+<!-- IMPULSION-PAGES-v1 : page de réponse et feuille de route (hébergement statique, sans compte Google) -->
+<style>body{margin:0;background:#0a1014;color:#e9f0f3;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.loading{text-align:center;padding:60px 10px;color:#8ba2ae}.retry{margin-top:16px;background:#19a6cc;color:#00222e;border:none;border-radius:10px;padding:12px 18px;font-weight:700;font-size:15px}</style>
+<style id="css-r" media="not all">
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#0a1014;color:#e9f0f3}
+.wrap{max-width:480px;margin:0 auto;padding:22px 16px 40px}
+.brand{font-size:24px;font-weight:300;letter-spacing:.02em}
+.sub{font-size:10px;letter-spacing:.42em;color:#19a6cc;margin:4px 0 18px}
+.leds{display:flex;gap:3px;margin:8px 0 2px}.leds i{width:9px;height:6px;border-radius:2px;background:#19a6cc;opacity:.25;animation:l 1.4s infinite}
+@keyframes l{50%{opacity:1;box-shadow:0 0 6px #19a6cc}}
+.card{background:#111a20;border:1px solid #233540;border-radius:16px;padding:18px;margin-bottom:14px}
+h1{font-size:21px;margin:2px 0 10px}.muted{color:#8ba2ae;font-size:14px}
+.row{margin:7px 0;font-size:15px}
+.days{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.day{display:flex;align-items:center;gap:7px;background:#16222a;border:1px solid #2f4552;border-radius:22px;padding:9px 13px;font-size:15px}
+.day input{width:20px;height:20px;accent-color:#19a6cc;margin:0}
+.btn{display:block;width:100%;border:none;border-radius:14px;padding:17px;font-size:18px;font-weight:700;margin:10px 0;cursor:pointer;color:#06131a}
+.btn:disabled{opacity:.5}
+.yes{background:#3ccf8e}.opt{background:#5b8cff;color:#fff}.no{background:#ff5d6c;color:#fff}
+textarea{width:100%;box-sizing:border-box;background:#0c1418;color:#e9f0f3;border:1px solid #2f4552;border-radius:10px;padding:11px;font:inherit;font-size:15px;min-height:70px;margin-top:6px}
+.done{text-align:center;font-size:18px;padding:30px 12px;line-height:1.5}.done .big{font-size:60px}
+.chip{background:#16222a;border:1px solid #2f4552;border-radius:22px;padding:8px 13px;font-size:15px}
+.note{background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.4);border-radius:12px;padding:11px 12px;font-size:14px;margin-top:12px;line-height:1.45}
+.prev{background:rgba(25,166,204,.12);border:1px solid rgba(25,166,204,.35);border-radius:12px;padding:12px;font-size:14px;margin-bottom:14px}
+</style>
+<style id="css-f" media="not all">
+body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#0a1014;color:#e9f0f3}
+.wrap{max-width:720px;margin:0 auto;padding:18px 14px 50px}
+.brand{font-size:22px;font-weight:300}.sub{font-size:10px;letter-spacing:.42em;color:#19a6cc;margin:4px 0 14px}
+.leds{display:flex;gap:3px;margin:8px 0 2px}.leds i{width:9px;height:6px;border-radius:2px;background:#19a6cc;opacity:.25;animation:l 1.4s infinite}
+@keyframes l{50%{opacity:1;box-shadow:0 0 6px #19a6cc}}
+.hero{background:linear-gradient(135deg,#0f3646,#111a20);border:1px solid #233540;border-radius:16px;padding:16px;margin-bottom:12px}
+h1{font-size:23px;margin:4px 0}.muted{color:#8ba2ae;font-size:13px}
+details.sec{background:#111a20;border:1px solid #233540;border-radius:14px;margin-bottom:10px;overflow:hidden}
+details.sec>summary{padding:14px 16px;font-size:16px;font-weight:700;cursor:pointer;list-style:none}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec .body{padding:0 16px 14px;font-size:15px;line-height:1.45}
+.btn{display:inline-block;background:#19a6cc;color:#00222e;font-weight:700;border-radius:10px;padding:10px 14px;margin:8px 8px 0 0;text-decoration:none}
+.btn.alt{background:#16222a;color:#e9f0f3;border:1px solid #2f4552}
+.tel{color:#5fd3f0;text-decoration:none;font-weight:600;white-space:nowrap}
+.info{background:#16222a;border-radius:10px;padding:10px 12px;margin-top:10px}
+.day{color:#19a6cc;font-weight:700;margin:12px 0 4px;text-transform:capitalize}
+.step{display:flex;gap:12px;padding:7px 0;border-bottom:1px dashed #233540}.step b{min-width:52px;color:#5fd3f0}
+.item{padding:9px 0;border-bottom:1px solid #1c2b35}.item:last-child{border-bottom:none}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:#1c2b35;color:#8ba2ae;margin-left:6px}
+.chk{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #1c2b35}.chk input{width:22px;height:22px;accent-color:#3ccf8e;flex:none}
+.chk.done span{text-decoration:line-through;color:#5d7581}
+.plan{background:#fff;border-radius:10px;padding:6px;margin-top:8px;overflow:auto}.plan svg{width:100%;height:auto;display:block}
+.scr{background:#16222a;border-radius:12px;padding:12px;margin-top:10px}
+.kv{display:flex;justify-content:space-between;font-size:14px;padding:3px 0}.kv span{color:#8ba2ae}
+img.scene{width:100%;border-radius:10px;margin-top:6px}
+.done-box{text-align:center;padding:40px 10px}
+</style>
+</head><body><div class="wrap">
+<div class="brand">Impulsion Groupe</div><div class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="sub" id="sub"></div>
+<div id="app"><div class="loading">Chargement…</div></div></div>
+<script>
+var API = "https://script.google.com/macros/s/AKfycbzmnxFQw_fK098dEei87EWnM2wXPrqpkVHqNn0OaQwqZ53usNuR2MNuSrP_CpvDzdJbhg/exec"; var COMPANY = "Impulsion Groupe";
+var QS = new URLSearchParams(location.search); var T = QS.get('t'), F = QS.get('f');
+function useCss(id) { document.getElementById(id).removeAttribute('media'); }
+function setBrand(c) { if (c) { Array.prototype.forEach.call(document.querySelectorAll('.brand'), function (b) { b.textContent = c; }); document.title = c; } }
+function api(params) { return fetch(API + '?' + new URLSearchParams(params).toString(), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.json(); }); }
+function post(obj) { return fetch(API, { method: 'POST', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(obj) }).then(function (r) { return r.json(); }); }
+/* même interface que google.script.run : les pages d'origine fonctionnent sans modification */
+var google = { script: { run: {
+  withSuccessHandler: function (f) { this._s = f; return this; },
+  withFailureHandler: function (f) { this._f = f; return this; },
+  respond: function (t, s, d, c) { var o = this; post({ action: 'respond', t: t, s: s, dates: d, comment: c }).then(function (j) { if (j && j.ok) o._s(); else o._f(new Error((j && j.error) || 'Erreur')); }).catch(function (e) { o._f(e); }); }
+} } };
+function fail(e) {
+  document.getElementById('app').innerHTML = '<div class="loading">😕 Impossible de charger la page.<br><small>' + String((e && e.message) || e || '').replace(/[<>&]/g, '') + '</small><br><button class="retry" onclick="location.reload()">Réessayer</button></div>';
+}
+function runReply(D) {
+
+var app = document.getElementById('app');
+var LBL = { valide: '✅ Disponible', option: '🟦 Option acceptée', indispo: '❌ Pas disponible', confirme: '📌 Présence confirmée' };
+var KIND = (D.info && D.info.kind) || 'booking';
+var SUB = { option: 'DEMANDE D’OPTION', booking: 'DEMANDE DE DISPONIBILITÉ', confirm: 'CONFIRMATION DE BOOKING' };
+Array.prototype.forEach.call(document.querySelectorAll('.leds i'), function (x, i) { x.style.animationDelay = (i * 0.1) + 's'; });
+document.getElementById('sub').textContent = SUB[KIND] || SUB.booking;
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function btns(on) { Array.prototype.forEach.call(document.querySelectorAll('.btn'), function (b) { b.disabled = !on; }); }
+function show() {
+  if (!D.info) { app.innerHTML = '<div class="card done"><div class="big">🤔</div>Ce lien n’est pas (ou plus) valide.<br><span class="muted">Contactez ' + esc(D.company) + '.</span></div>'; return; }
+  var i = D.info, days = i.days || [], h = '<div class="card"><div class="muted">Bonjour ' + esc(i.prenom) + ' 👋</div><h1>' + esc(i.projet) + '</h1>';
+  if (i.lieu) h += '<div class="row">📍 ' + esc(i.lieu) + '</div>';
+  if (i.role) h += '<div class="row">🛠️ ' + esc(i.role) + '</div>';
+  if (KIND === 'confirm') {
+    h += '<div class="row">📅 Jours bookés :</div><div class="days">' + days.map(function (d) { return '<span class="chip">' + esc(d.l) + '</span>'; }).join('') + '</div>';
+    h += '<div class="note" style="background:rgba(60,207,142,.12);border-color:rgba(60,207,142,.4)">📌 C’est officiel : votre booking est <b>confirmé</b>. Merci de confirmer votre présence.</div>';
+  } else {
+    h += '<div class="row">📅 Jours demandés :</div><div class="days">' + days.map(function (d) { return '<label class="day"><input type="checkbox" value="' + esc(d.d) + '" checked>' + esc(d.l) + '</label>'; }).join('') + '</div>';
+    if (days.length > 1) h += '<div class="muted" style="margin-top:10px">Décochez les jours où vous n’êtes pas disponible.</div>';
+    if (KIND === 'option') h += '<div class="note">🟦 Il s’agit d’une <b>option</b> (pré-réservation) : ce n’est pas encore une confirmation. ' + esc(D.company) + ' reviendra vers vous pour valider officiellement le booking.</div>';
+  }
+  h += '</div>';
+  if (D.last && LBL[D.last.status]) h += '<div class="prev">Votre réponse actuelle : <b>' + LBL[D.last.status] + '</b> — vous pouvez la modifier.</div>';
+  h += '<div class="card">';
+  if (KIND === 'confirm') h += '<button class="btn yes" data-s="confirme">📌 Je confirme ma présence</button><button class="btn no" data-s="indispo">❌ Je ne peux plus venir</button>';
+  else if (KIND === 'option') h += '<button class="btn opt" data-s="option">🟦 OK, je bloque ces dates</button><button class="btn no" data-s="indispo">❌ Pas disponible</button>';
+  else h += '<button class="btn yes" data-s="valide">✅ Je suis disponible</button><button class="btn no" data-s="indispo">❌ Pas disponible</button>';
+  h += '<textarea id="c" placeholder="Un commentaire ? (facultatif)"></textarea></div>';
+  app.innerHTML = h;
+  Array.prototype.forEach.call(document.querySelectorAll('.btn'), function (b) { b.onclick = function () { send(b.getAttribute('data-s')); }; });
+}
+function send(s) {
+  var days = KIND === 'confirm' ? (D.info.days || []).map(function (d) { return d.d; })
+    : Array.prototype.map.call(document.querySelectorAll('.day input:checked'), function (x) { return x.value; });
+  if (s !== 'indispo' && !days.length) { alert('Cochez au moins un jour (ou choisissez « Pas disponible »).'); return; }
+  if (s === 'indispo' && KIND === 'confirm' && !confirm('Vous ne pourrez plus venir alors que le booking est confirmé ? ' + D.company + ' sera prévenu immédiatement.')) return;
+  var c = document.getElementById('c').value; btns(false);
+  google.script.run
+    .withSuccessHandler(function () {
+      var msg = s === 'indispo' ? (KIND === 'confirm' ? 'C’est noté, ' + esc(D.company) + ' est prévenu.' : 'Pas de souci, merci d’avoir répondu.')
+        : KIND === 'option' ? 'Les dates sont bloquées en option. Vous recevrez la confirmation officielle du booking.'
+        : KIND === 'confirm' ? 'Présence confirmée, à bientôt sur le projet !' : 'Réponse enregistrée : ' + LBL[s];
+      app.innerHTML = '<div class="card done"><div class="big">' + (s === 'indispo' ? '👍' : '🎉') + '</div><b>Merci ' + esc(D.info.prenom) + ' !</b><br>' + msg + '<br><br><span class="muted">Vous pouvez fermer cette page.<br>Pour changer d’avis, rouvrez simplement le lien.</span></div>';
+    })
+    .withFailureHandler(function (e) { alert('Oups, la réponse n’a pas pu être envoyée : ' + (e && e.message ? e.message : e)); btns(true); })
+    .respond(D.t, s, days, c);
+}
+show();
+}
+function runFdr(X) {
+ var d = X.d; var app = document.getElementById('app'); var NL = String.fromCharCode(10);
+Array.prototype.forEach.call(document.querySelectorAll('.leds i'), function (x, i) { x.style.animationDelay = (i * 0.1) + 's'; });
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function nl(s) { return esc(s).split(NL).join('<br>'); }
+function tel(p) { var n = String(p || '').replace(/[^0-9+]/g, ''); return n ? ' <a class="tel" target="_top" href="tel:' + n + '">📞 ' + esc(p) + '</a>' : ''; }
+function sec(icon, title, body, closed) { return '<details class="sec"' + (closed ? '' : ' open') + '><summary>' + icon + ' ' + title + '</summary><div class="body">' + body + '</div></details>'; }
+function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || '{}'); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return {}; } }
+if (!d) { app.innerHTML = '<div class="hero done-box"><div style="font-size:54px">🤔</div>Cette feuille de route n’est pas (ou plus) disponible.<br><span class="muted">Contactez ' + esc(X.company) + '.</span></div>'; }
+else {
+  var h = '<div class="hero"><div class="muted">' + esc(d.project.status || '') + '</div><h1>' + esc(d.project.name) + '</h1><div>📅 ' + esc(d.project.dates) + '</div>' + (d.project.client ? '<div class="muted">Client : ' + esc(d.project.client) + '</div>' : '') + '</div>';
+  var where = d.mapsQuery || d.address || d.project.venue; var place = d.place != null ? d.place : d.project.venue;
+  if (where || d.access) {
+    var b = '';
+    if (place) b += '<div style="font-weight:700">' + esc(place) + '</div>';
+    if (d.address) b += '<div>' + nl(d.address) + '</div>';
+    if (where) b += '<a class="btn" target="_blank" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(where) + '">🗺️ Google Maps</a><a class="btn alt" target="_blank" href="https://waze.com/ul?q=' + encodeURIComponent(where) + '&navigate=yes">🚗 Waze</a>';
+    if (d.access) b += '<div class="info"><b>Accès / parking</b><br>' + nl(d.access) + '</div>';
+    h += sec('📍', 'Lieu & accès', b);
+  }
+  if ((d.schedule || []).length) {
+    var day = null, b2 = '';
+    d.schedule.forEach(function (x) { if (x.day !== day) { day = x.day; b2 += '<div class="day">' + esc(day || 'Date à définir') + '</div>'; } b2 += '<div class="step"><b>' + esc(x.time || '--:--') + '</b><div>' + esc(x.label) + (x.note ? '<div class="muted">' + esc(x.note) + '</div>' : '') + '</div></div>'; });
+    h += sec('🕐', 'Planning', b2);
+  }
+  if ((d.contacts || []).length) h += sec('📞', 'Contacts sur site', d.contacts.map(function (c) { return '<div class="item"><b>' + esc(c.name) + '</b>' + (c.role ? ' <span class="muted">' + esc(c.role) + '</span>' : '') + '<br>' + tel(c.phone) + '</div>'; }).join(''));
+  if ((d.crew || []).length) h += sec('👷', 'Équipe (' + d.crew.length + ')', d.crew.map(function (c) { return '<div class="item"><b>' + esc(c.name) + '</b>' + (c.status === 'Option' ? '<span class="tag">option</span>' : '') + '<div class="muted">' + esc(c.role || '') + (c.role ? ' · ' : '') + esc(c.dates) + '</div>' + tel(c.phone) + '</div>'; }).join(''));
+  if ((d.fleet || []).length) h += sec('🚚', 'Transport', d.fleet.map(function (f) { return '<div class="item"><b>' + esc(f.vehicle) + '</b>' + (f.plate ? '<span class="tag">' + esc(f.plate) + '</span>' : '') + '<div class="muted">' + esc(f.dates) + '</div>' + (f.driver ? '<div>Chauffeur : ' + esc(f.driver) + tel(f.phone) + '</div>' : '') + (f.note ? '<div class="muted">' + esc(f.note) + '</div>' : '') + '</div>'; }).join(''));
+  if ((d.screens || []).length || d.sceneImg) {
+    var b3 = d.sceneImg ? '<img class="scene" src="' + d.sceneImg + '">' : '';
+    (d.screens || []).forEach(function (s) {
+      b3 += '<div class="scr"><b style="font-size:16px">' + esc(s.name) + '</b> <span class="muted">' + esc(s.product) + '</span>';
+      [['Dimensions', s.dims], ['Surface', s.m2], ['Résolution', s.res], ['Lignes électriques', s.elec], ['Ports data', s.data + (s.proc ? ' · ' + s.proc : '')], ['Puissance max', s.power], ['Poids', s.weight]].forEach(function (kv) { b3 += '<div class="kv"><span>' + kv[0] + '</span><b>' + esc(kv[1]) + '</b></div>'; });
+      if ((s.zones || []).length) b3 += '<div class="muted" style="margin-top:6px">' + s.zones.map(esc).join(' · ') + '</div>';
+      (s.plans || []).forEach(function (pl) { b3 += '<div style="margin-top:10px;font-weight:700">' + esc(pl.title) + '</div><div class="plan">' + pl.svg + '</div>'; });
+      b3 += '</div>';
+    });
+    h += sec('🖥️', 'Écrans & plans', b3);
+  }
+  if ((d.material || []).length) {
+    var key = 'fdr-' + X.t; var st = store(key);
+    h += sec('📦', 'Matériel (' + d.material.length + ' références)', '<div class="muted">Cochez au chargement — mémorisé sur ce téléphone.</div>' + d.material.map(function (m, i) { var on = st[i] ? ' checked' : ''; return '<label class="chk' + (st[i] ? ' done' : '') + '"><input type="checkbox" data-i="' + i + '"' + on + '><span><b>' + m.qty + ' ×</b> ' + esc(m.name) + ' <span class="muted">' + esc(m.ref) + (m.m2 ? ' · ' + esc(m.m2) : '') + '</span></span></label>'; }).join(''), true);
+  }
+  var prat = [['🏨 Hébergement', d.lodging], ['🍽️ Repas', d.meals], ['👕 Tenue', d.dress], ['⚠️ Sécurité / EPI', d.safety], ['📝 Notes', d.notes]].filter(function (x) { return x[1]; });
+  if (prat.length) h += sec('ℹ️', 'Infos pratiques', prat.map(function (x) { return '<div class="info"><b>' + x[0] + '</b><br>' + nl(x[1]) + '</div>'; }).join(''));
+  h += '<div class="muted" style="text-align:center;margin-top:16px">Mise à jour : ' + esc(d.updatedAt) + ' · ' + esc(d.company) + '</div>';
+  app.innerHTML = h;
+  Array.prototype.forEach.call(document.querySelectorAll('.chk input'), function (c) {
+    c.onchange = function () { var key = 'fdr-' + X.t; var st = store(key); st[c.getAttribute('data-i')] = c.checked; store(key, st); c.parentNode.className = 'chk' + (c.checked ? ' done' : ''); };
+  });
+}
+}
+setBrand(COMPANY);
+if (T) {
+  useCss('css-r');
+  api({ action: 'info', t: T }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur'); setBrand(j.company); runReply({ t: T, info: j.info, last: j.last, company: j.company || COMPANY }); }).catch(fail);
+} else if (F) {
+  useCss('css-f'); document.getElementById('sub').textContent = 'FEUILLE DE ROUTE';
+  api({ action: 'fdr', f: F }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur'); setBrand(j.company); runFdr({ d: j.d, t: F, company: j.company || COMPANY }); }).catch(fail);
+} else {
+  useCss('css-r'); document.getElementById('app').innerHTML = '<div class="card done"><div class="big">💡</div>Pages de réponse de ' + COMPANY.replace(/[<>&]/g, '') + '.<br><span class="muted">Ouvrez le lien reçu sur WhatsApp.</span></div>';
+}
+</script></body></html>
