@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>Impulsion Groupe</title>
+<meta name="theme-color" content="#0a1014"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Mes bookings">
+<link rel="apple-touch-icon" href="icon-192.png"><link rel="icon" href="icon-192.png">
 <!-- IMPULSION-PAGES-v1 : page de réponse et feuille de route (hébergement statique, sans compte Google) -->
 <style>body{margin:0;background:#0a1014;color:#e9f0f3;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
 .loading{text-align:center;padding:60px 10px;color:#8ba2ae}.retry{margin-top:16px;background:#19a6cc;color:#00222e;border:none;border-radius:10px;padding:12px 18px;font-weight:700;font-size:15px}</style>
@@ -25,6 +28,25 @@ textarea{width:100%;box-sizing:border-box;background:#0c1418;color:#e9f0f3;borde
 .chip{background:#16222a;border:1px solid #2f4552;border-radius:22px;padding:8px 13px;font-size:15px}
 .note{background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.4);border-radius:12px;padding:11px 12px;font-size:14px;margin-top:12px;line-height:1.45}
 .prev{background:rgba(25,166,204,.12);border:1px solid rgba(25,166,204,.35);border-radius:12px;padding:12px;font-size:14px;margin-bottom:14px}
+</style>
+<style id="css-e" media="not all">
+.e-h{display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px}.e-h h2{font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:#8ba2ae;margin:18px 0 8px;font-weight:600}
+.e-card{background:#111a20;border:1px solid #233540;border-left:5px solid #19a6cc;border-radius:14px;padding:14px 14px 10px;margin-bottom:12px}
+.e-card.attente{border-left-color:#ffb547}.e-card.option{border-left-color:#5b8cff}.e-card.valide{border-left-color:#3ccf8e}
+.e-t{font-size:18px;font-weight:700;margin:0 0 2px}.e-st{display:inline-block;font-size:12px;font-weight:700;border-radius:20px;padding:3px 9px;margin:4px 0 6px;color:#06131a}
+.e-st.attente{background:#ffb547}.e-st.option{background:#5b8cff;color:#fff}.e-st.valide{background:#3ccf8e}
+.e-l{font-size:14.5px;margin:5px 0;line-height:1.4}.e-days{margin:6px 0 4px;padding-left:2px}.e-days div{font-size:14px;margin:3px 0}
+.e-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.e-b{flex:1 1 140px;text-align:center;text-decoration:none;border-radius:12px;padding:12px 10px;font-weight:700;font-size:15px;background:#16222a;border:1px solid #2f4552;color:#e9f0f3}
+.e-b.go{background:#ffb547;color:#06131a;border:none}.e-b.fd{background:#19a6cc;color:#06131a;border:none}.e-b.wa{background:#25d366;color:#06131a;border:none}
+.e-empty{text-align:center;color:#8ba2ae;padding:34px 10px;font-size:16px;line-height:1.5}.e-foot{text-align:center;color:#5f7580;font-size:12px;margin-top:20px}
+.e-ref{background:none;border:1px solid #2f4552;color:#8ba2ae;border-radius:10px;padding:7px 11px;font-size:13px}
+.e-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:8px}.e-cal b{font-size:11px;color:#8ba2ae;text-align:center;font-weight:600}
+.e-cal button{aspect-ratio:1;border:1px solid #2f4552;background:#16222a;color:#e9f0f3;border-radius:10px;font-size:15px;padding:0;position:relative}
+.e-cal button.off{background:#ff5d6c;border-color:#ff5d6c;color:#fff;font-weight:700}.e-cal button:disabled{opacity:.25}.e-cal button.bk::after{content:'';position:absolute;bottom:4px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#3ccf8e}
+.e-cal button.off.bk::after{background:#fff}.e-mn{display:flex;align-items:center;justify-content:space-between;margin-top:6px}.e-mn b{font-size:16px;text-transform:capitalize}.e-mn button{background:#16222a;border:1px solid #2f4552;color:#e9f0f3;border-radius:10px;width:42px;height:38px;font-size:18px}
+.e-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.e-chip{background:rgba(255,93,108,.15);border:1px solid rgba(255,93,108,.45);color:#ffb3ba;border-radius:16px;padding:5px 10px;font-size:13px}
+.e-ok{background:rgba(60,207,142,.12);border:1px solid rgba(60,207,142,.45);border-radius:12px;padding:10px 12px;font-size:14px;margin:8px 0}
+.e-inst{background:rgba(25,166,204,.1);border:1px solid rgba(25,166,204,.35);border-radius:12px;padding:11px 12px;font-size:13.5px;line-height:1.5;margin:6px 0 14px}
 </style>
 <style id="css-f" media="not all">
 body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#0a1014;color:#e9f0f3}
@@ -58,8 +80,11 @@ img.scene{width:100%;border-radius:10px;margin-top:6px}
 <div class="brand">Impulsion Groupe</div><div class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="sub" id="sub"></div>
 <div id="app"><div class="loading">Chargement…</div></div></div>
 <script>
-var API = "https://script.google.com/macros/s/AKfycbw4tgJ7YunlhVp-9bgE61ZnpQzYfj1X04N1BvwKSrZgHjVSTc0hSX5lrHK5rht_8iGyHQ/exec"; var COMPANY = "Impulsion Groupe";
-var QS = new URLSearchParams(location.search); var T = QS.get('t'), F = QS.get('f');
+var API = "https://script.google.com/macros/s/AKfycbzbvV54TFROed6umKZB6XIs48L5mjuEQCtrkiHPjeTpTJcOrNEl2l4Qn2iM3QUQ3EG32A/exec"; var COMPANY = "Impulsion Groupe";
+var QS = new URLSearchParams(location.search); var T = QS.get('t'), F = QS.get('f'), E = QS.get('e');
+function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (x) { return null; } }
+if (E && /^[a-z0-9]{8,40}$/.test(E)) ls('ip-espace', E); else if (!T && !F && QS.has('espace')) E = ls('ip-espace');
+if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js').catch(function () {}); } catch (x) {} }
 function useCss(id) { document.getElementById(id).removeAttribute('media'); }
 function setBrand(c) { if (c) { Array.prototype.forEach.call(document.querySelectorAll('.brand'), function (b) { b.textContent = c; }); document.title = c; } }
 function api(params) { return fetch(API + '?' + new URLSearchParams(params).toString(), { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.json(); }); }
@@ -72,6 +97,78 @@ var google = { script: { run: {
 } } };
 function fail(e) {
   document.getElementById('app').innerHTML = '<div class="loading">😕 Impossible de charger la page.<br><small>' + String((e && e.message) || e || '').replace(/[<>&]/g, '') + '</small><br><button class="retry" onclick="location.reload()">Réessayer</button></div>';
+}
+/* ---------- Espace technicien : ses bookings uniquement ---------- */
+function esc2(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+var EST = { attente: '⏳ À répondre', option: '🟦 Option', valide: '✅ Validé' };
+function espaceCard(it) {
+  var h = '<div class="e-card ' + it.status + '"><div class="e-t">' + esc2(it.project) + '</div><span class="e-st ' + it.status + '">' + (EST[it.status] || esc2(it.status)) + '</span>';
+  if (it.role) h += '<div class="e-l">👷 ' + esc2(it.role) + '</div>';
+  if (it.lieu || it.address) h += '<div class="e-l">📍 ' + esc2(it.address || it.lieu) + '</div>';
+  h += '<div class="e-days">' + (it.days || []).map(function (d) { return '<div>📅 ' + esc2(d.l) + '</div>'; }).join('') + '</div>';
+  if (it.note) h += '<div class="e-l" style="color:#8ba2ae">ℹ️ ' + esc2(it.note) + '</div>';
+  var b = '';
+  if (it.reply) b += '<a class="e-b go" href="' + esc2(it.reply) + '">✋ Répondre</a>';
+  if (it.fdr) b += '<a class="e-b fd" href="' + esc2(it.fdr) + '">🗺️ Feuille de route · plans · 3D</a>';
+  if (it.group) b += '<a class="e-b wa" href="' + esc2(it.group) + '">💬 Groupe WhatsApp</a>';
+  if (it.status === 'valide' && (it.address || it.lieu)) b += '<a class="e-b" target="_blank" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(it.address || it.lieu) + '">🧭 Itinéraire</a>';
+  if (b) h += '<div class="e-btns">' + b + '</div>';
+  return h + '</div>';
+}
+var IND = { ok: true, days: [], note: '', edit: false, sel: [], m: 0, msg: '' };
+function iso(d) { var z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); }
+function todayIso() { return iso(new Date()); }
+function dLabel(d) { return new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }); }
+function indSection(d) {
+  if (!IND.ok) return '';
+  var t0 = todayIso(); var fut = IND.days.filter(function (x) { return x >= t0; }).sort();
+  var booked = {}; (d.items || []).forEach(function (it) { (it.days || []).forEach(function (x) { if (it.status === 'valide' || it.status === 'option') booked[x.d] = it.project; }); });
+  var h = '<div class="e-h"><h2>🚫 Mes indisponibilités</h2></div><div class="e-card" style="border-left-color:#ff5d6c">';
+  if (IND.msg) h += '<div class="e-ok">' + IND.msg + '</div>';
+  if (!IND.edit) {
+    h += fut.length ? '<div class="e-l">Vous ne serez pas sollicité ces jours-là :</div><div class="e-chips">' + fut.map(function (x) { return '<span class="e-chip">' + esc2(dLabel(x)) + '</span>'; }).join('') + '</div>' : '<div class="e-l" style="color:#8ba2ae">Aucune indisponibilité déclarée. Prévenez à l\'avance : vous ne recevrez pas de demande ces jours-là.</div>';
+    if (IND.note) h += '<div class="e-l" style="color:#8ba2ae">📝 ' + esc2(IND.note) + '</div>';
+    h += '<div class="e-btns"><a class="e-b" href="#" onclick="indEdit();return false">✎ Indiquer mes indisponibilités</a></div></div>';
+    return h;
+  }
+  var base = new Date(); base.setDate(1); base.setMonth(base.getMonth() + IND.m);
+  var y = base.getFullYear(), mo = base.getMonth(); var first = (new Date(y, mo, 1).getDay() + 6) % 7; var n = new Date(y, mo + 1, 0).getDate();
+  h += '<div class="e-l">Touchez les jours où vous n\'êtes <b>pas disponible</b> (en rouge). Point vert = déjà booké ou en option.</div>';
+  h += '<div class="e-mn"><button onclick="indMonth(-1)" ' + (IND.m <= 0 ? 'disabled' : '') + '>‹</button><b>' + base.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) + '</b><button onclick="indMonth(1)" ' + (IND.m >= 11 ? 'disabled' : '') + '>›</button></div><div class="e-cal">';
+  ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach(function (x) { h += '<b>' + x + '</b>'; });
+  for (var i = 0; i < first; i++) h += '<span></span>';
+  for (var k = 1; k <= n; k++) { var ds = iso(new Date(y, mo, k)); var on = IND.sel.indexOf(ds) >= 0;
+    h += '<button class="' + (on ? 'off ' : '') + (booked[ds] ? 'bk' : '') + '" ' + (ds < t0 ? 'disabled' : '') + ' data-ind="' + ds + '" title="' + esc2(booked[ds] || '') + '">' + k + '</button>'; }
+  h += '</div><textarea id="indNote" placeholder="Petit mot (facultatif) : congés, autre contrat…" style="margin-top:12px">' + esc2(IND.note || '') + '</textarea>';
+  var clash = IND.sel.filter(function (x) { return booked[x] && x >= t0; });
+  if (clash.length) h += '<div class="note" style="border-color:rgba(255,181,71,.6);background:rgba(255,181,71,.12)">⚠️ Vous êtes déjà booké ou en option le ' + clash.map(dLabel).join(', ') + ' : prévenez aussi directement par téléphone.</div>';
+  h += '<button class="btn yes" id="indSave" onclick="indSave()">Envoyer (' + IND.sel.filter(function (x) { return x >= t0; }).length + ' jour(s))</button><button class="btn" style="background:#16222a;color:#e9f0f3;border:1px solid #2f4552" onclick="indCancel()">Annuler</button></div>';
+  return h;
+}
+document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-ind]'); if (b) indToggle(b.getAttribute('data-ind')); });
+function indKeepNote() { var n = document.getElementById('indNote'); if (n) IND.note = n.value; }
+function indEdit() { IND.edit = true; IND.msg = ''; IND.sel = IND.days.slice(); IND.m = 0; runEspace(ESP); }
+function indCancel() { IND.edit = false; IND.msg = ''; runEspace(ESP); }
+function indMonth(k) { indKeepNote(); IND.m = Math.max(0, Math.min(11, IND.m + k)); runEspace(ESP); }
+function indToggle(d) { indKeepNote(); var i = IND.sel.indexOf(d); if (i >= 0) IND.sel.splice(i, 1); else IND.sel.push(d); var y = window.scrollY; runEspace(ESP); window.scrollTo(0, y); }
+function indSave() {
+  indKeepNote(); var t0 = todayIso(); var days = IND.sel.filter(function (x) { return x >= t0; }).sort(); var b = document.getElementById('indSave'); if (b) { b.disabled = true; b.textContent = 'Envoi…'; }
+  post({ action: 'indispo', e: E, days: days, note: IND.note || '' }).then(function (j) {
+    if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur');
+    IND.days = days; IND.edit = false; IND.msg = '✔ Merci ! C\'est transmis : vous ne serez pas sollicité ces jours-là.'; runEspace(ESP);
+  }).catch(function (e) { alert('Oups, pas envoyé : ' + ((e && e.message) || e)); if (b) { b.disabled = false; b.textContent = 'Envoyer'; } });
+}
+var ESP = null;
+function runEspace(X) { ESP = X;
+  var d = X.d || {}; var items = d.items || []; var app = document.getElementById('app');
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  var grp = function (st, title) { var l = items.filter(function (i) { return i.status === st; }); return l.length ? '<div class="e-h"><h2>' + title + ' (' + l.length + ')</h2></div>' + l.map(espaceCard).join('') : ''; };
+  var h = '<div class="e-h"><div style="font-size:20px">Salut ' + esc2(d.name || '') + ' 👋</div><button class="e-ref" onclick="location.reload()">↻</button></div>';
+  if (!standalone && !ls('ip-espace-inst')) h += '<div class="e-inst">📱 <b>Ajoutez cette page à votre écran d\'accueil</b> pour l\'ouvrir comme une appli :<br>• iPhone (Safari) : bouton Partager ⬆️ → « Sur l\'écran d\'accueil »<br>• Android (Chrome) : menu ⋮ → « Installer l\'appli » ou « Ajouter à l\'écran d\'accueil »<br><a href="#" onclick="ls(\'ip-espace-inst\',\'1\');this.parentNode.remove();return false" style="color:#19a6cc">C\'est fait ✔</a></div>';
+  h += grp('attente', 'À répondre') + grp('option', 'Options') + grp('valide', 'Mes bookings validés') + indSection(d);
+  if (!items.length) h += '<div class="e-empty">🌤️<br>Aucun booking à venir pour l\'instant.<br><span style="font-size:14px">Cette page se met à jour toute seule.</span></div>';
+  h += '<div class="e-foot">Mis à jour ' + (d.updatedAt ? new Date(d.updatedAt).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') + '</div>';
+  app.innerHTML = h;
 }
 function runReply(D) {
 
@@ -181,6 +278,12 @@ setBrand(COMPANY);
 if (T) {
   useCss('css-r');
   api({ action: 'info', t: T }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur'); setBrand(j.company); runReply({ t: T, info: j.info, last: j.last, company: j.company || COMPANY }); }).catch(fail);
+} else if (E) {
+  useCss('css-r'); useCss('css-e'); document.getElementById('sub').textContent = 'MES BOOKINGS';
+  var lm = document.createElement('link'); lm.rel = 'manifest'; lm.href = 'espace.webmanifest'; document.head.appendChild(lm);
+  var pInd = api({ action: 'indget', e: E }).then(function (j) { if (!j || !j.ok) { IND.ok = false; return; } if (j.ind) { IND.days = j.ind.days || []; IND.note = j.ind.note || ''; IND.got = true; } }).catch(function () { IND.ok = false; });
+  api({ action: 'fdr', f: E }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur'); if (!j.d || j.d.kind !== 'espace') throw new Error('Cet espace n\'existe plus : demandez un nouveau lien.'); setBrand(j.d.company || j.company);
+    return pInd.then(function () { if (!IND.got && j.d.indispo) { IND.days = j.d.indispo.days || []; IND.note = j.d.indispo.note || ''; } runEspace({ d: j.d }); }); }).catch(fail);
 } else if (F) {
   useCss('css-f'); document.getElementById('sub').textContent = 'FEUILLE DE ROUTE';
   api({ action: 'fdr', f: F }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur'); setBrand(j.company); runFdr({ d: j.d, t: F, company: j.company || COMPANY }); }).catch(fail);
