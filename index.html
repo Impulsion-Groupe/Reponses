@@ -58,7 +58,7 @@ img.scene{width:100%;border-radius:10px;margin-top:6px}
 <div class="brand">Impulsion Groupe</div><div class="leds"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="sub" id="sub"></div>
 <div id="app"><div class="loading">Chargement…</div></div></div>
 <script>
-var API = "https://script.google.com/macros/s/AKfycbzSP7RHNB-GsYK3N0-3FMpZ4mDP58IctQaiuP0EXzer0t9E_iA5SKmpKWHial4NuP1PCw/exec"; var COMPANY = "Impulsion Groupe";
+var API = "https://script.google.com/macros/s/AKfycbw4tgJ7YunlhVp-9bgE61ZnpQzYfj1X04N1BvwKSrZgHjVSTc0hSX5lrHK5rht_8iGyHQ/exec"; var COMPANY = "Impulsion Groupe";
 var QS = new URLSearchParams(location.search); var T = QS.get('t'), F = QS.get('f');
 function useCss(id) { document.getElementById(id).removeAttribute('media'); }
 function setBrand(c) { if (c) { Array.prototype.forEach.call(document.querySelectorAll('.brand'), function (b) { b.textContent = c; }); document.title = c; } }
