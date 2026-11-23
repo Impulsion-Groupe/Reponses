@@ -413,7 +413,7 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
    CORE — données, sauvegarde, migrations, utilitaires
    ===================================================================== */
 const SCHEMA_VERSION = 3;
-const APP_VERSION = '3.5.2';
+const APP_VERSION = '3.6.0';
 const IS_DESKTOP = !!(window.desktop && window.desktop.isDesktop);
 const NATIVE_FILES = IS_DESKTOP && typeof window.desktop.saveFile === 'function';
 /* Version téléphone / navigateur (app.html hébergée sur GitHub) : données dans IndexedDB, synchronisées par le partage */
@@ -431,6 +431,10 @@ const CATEGORIES = {
   structure: 'Structure / accroche', autre: 'Autre'
 };
 const STATUSES = { devis: 'Devis / option', confirme: 'Confirmé', encours: 'En cours', termine: 'Terminé', annule: 'Annulé' };
+/* Catégories de projet (p.cat) — « Vente » = projet de vente : aucun stock réservé, dalles hors catalogue possibles */
+const PROJECT_CATS = { seche: { l: 'Location sèche', ic: '📦', c: '#5b8cff' }, presta: { l: 'Presta', ic: '🎛️', c: '#19a6cc' }, longue: { l: 'Location longue durée', ic: '🗓️', c: '#b07cff' }, vente: { l: 'Vente', ic: '💼', c: '#ffb547' } };
+const catOf = (p) => (p && p.cat && PROJECT_CATS[p.cat] ? p.cat : p && p.sale ? 'vente' : '');
+const catTag = (p) => { const k = catOf(p); const c = PROJECT_CATS[k]; return c ? `<span class="tag" style="background:${c.c}22;color:${c.c};border:1px solid ${c.c}55" title="${k === 'vente' ? 'Vente : aucun stock réservé' : c.l}">${c.ic} ${c.l}</span>` : ''; };
 const ANGLES = [-15, -10, -5, 0, 5, 10, 15];
 /* angles proposés à chaque jonction (90° = coin droit : cube, angle de mur, totem 4 faces…) */
 const ANGLES_ALL = [-90, -60, -45, -30, -20, -15, -10, -7.5, -5, -2.5, 0, 2.5, 5, 7.5, 10, 15, 20, 30, 45, 60, 90];
@@ -5165,7 +5169,7 @@ const JOURNAL_TYPES = {
   users: { t: 'user', ic: '👤', one: 'le compte', label: (x) => x.name }
 };
 const PART_NAMES = {
-  name: 'nom', client: 'client', venue: 'lieu', start: 'dates', end: 'dates', out: 'dates', back: 'dates', status: 'statut', notes: 'notes',
+  name: 'nom', client: 'client', venue: 'lieu', start: 'dates', end: 'dates', out: 'dates', back: 'dates', status: 'statut', notes: 'notes', cat: 'catégorie',
   screens: 'écrans', crew: 'équipe', fleet: 'transport', extras: 'matériel', roadmap: 'feuille de route', scene: 'scène 3D', boards: 'boarding',
   stock: 'stock', pwd: 'mot de passe', color: 'couleur', title: 'fonction', phone: 'téléphone', email: 'email', skills: 'compétences'
 };
@@ -5836,7 +5840,7 @@ function vHome() {
 }
 function statusTag(p) {
   const cls = { devis: 'warn', confirme: 'info', encours: 'ok', termine: '', annule: 'bad' }[p.status] || '';
-  return `<span class="tag ${cls}">${STATUSES[p.status] || p.status}</span>${p.sale ? ' <span class="tag warn" title="Projet de vente / étude : aucun stock réservé">💼 Vente</span>' : ''}`;
+  return `<span class="tag ${cls}">${STATUSES[p.status] || p.status}</span>${catOf(p) ? ' ' + catTag(p) : ''}`;
 }
 
 /* ---------------- CATALOGUE ---------------- */
@@ -5921,12 +5925,14 @@ function vPlanning() {
 
 /* ---------------- PROJETS ---------------- */
 function vProjects() {
-  const t = todayISO(); const f = ui.projFilter;
-  const list = db().projects.filter((p) => f === 'tous' || (f === 'actifs' ? p.status !== 'annule' && (p.end || p.start || t) >= t : f === 'passes' ? (p.end || p.start || t) < t : true))
+  const t = todayISO(); const f = ui.projFilter; const fc = ui.projCat || 'all';
+  const list = db().projects.filter((p) => fc === 'all' || (fc === 'none' ? !catOf(p) : catOf(p) === fc)).filter((p) => f === 'tous' || (f === 'actifs' ? p.status !== 'annule' && (p.end || p.start || t) >= t : f === 'passes' ? (p.end || p.start || t) < t : true))
     .sort((a, b) => (a.start || '').localeCompare(b.start || ''));
   return `<div class="page-head"><div><h1>Projets</h1><div class="sub">${db().projects.length} projets au total</div></div>
    <div class="row"><div class="seg">${[['actifs', 'À venir / en cours'], ['passes', 'Passés'], ['tous', 'Tous']].map(([k, v]) => `<button class="${f === k ? 'on' : ''}" data-act="projFilter" data-v="${k}">${v}</button>`).join('')}</div>
+   <select data-ui-sel="projCat" title="Catégorie"><option value="all">Toutes catégories</option>${Object.entries(PROJECT_CATS).map(([k, c]) => `<option value="${k}" ${fc === k ? 'selected' : ''}>${c.ic} ${c.l}</option>`).join('')}<option value="none" ${fc === 'none' ? 'selected' : ''}>Sans catégorie</option></select>
    <button class="primary" data-act="newProject">✦ Nouveau projet</button></div></div>
+   ${(() => { const cnt = {}; db().projects.forEach((p) => { const k = catOf(p) || 'none'; cnt[k] = (cnt[k] || 0) + 1; }); return `<div class="row" style="gap:6px;margin:-6px 0 14px">${Object.entries(PROJECT_CATS).map(([k, c]) => `<span class="tiny muted">${c.ic} ${c.l} : <b>${cnt[k] || 0}</b></span>`).join('<span class="tiny muted">·</span>')}</div>`; })()}
   ${list.length ? `<div class="grid g3">${list.map((p) => { const sh = projectShortages(p); const n = p.screens.reduce((s, x) => s + panelCount(x), 0);
     return `<div class="card screen-card" data-act="openProject" data-id="${p.id}" style="border-top:3px solid ${p.color}">
      <div class="row" style="justify-content:space-between"><h2 style="margin:0">${esc(p.name)}</h2>${statusTag(p)}</div>
@@ -5940,6 +5946,7 @@ function projectForm(p) {
   return `<h2>${p._new ? 'Nouveau projet' : 'Infos du projet'}</h2><div class="form">
    <label class="f span2">Nom du projet *<input data-jf="name" value="${esc(p.name)}"></label><label class="f">Client<input data-jf="client" value="${esc(p.client || '')}"></label><label class="f">Lieu<input data-jf="venue" value="${esc(p.venue || '')}"></label>
    <label class="f">Date de sortie<input type="date" data-jf="start" value="${p.start || ''}"></label><label class="f">Date de retour<input type="date" data-jf="end" value="${p.end || ''}"></label>
+   <label class="f">Catégorie<select data-jf="cat"><option value="">— Choisir —</option>${Object.entries(PROJECT_CATS).map(([k, c]) => `<option value="${k}" ${catOf(p) === k ? 'selected' : ''}>${c.ic} ${c.l}</option>`).join('')}</select></label>
    <label class="f">Statut<select data-jf="status">${Object.entries(STATUSES).map(([k, v]) => `<option value="${k}" ${p.status === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
    <label class="f">Couleur<input type="color" data-jf="color" value="${p.color}"></label>
    <label class="f span4 row" style="gap:10px;align-items:center;flex-direction:row"><input type="checkbox" id="pjSale" ${p.sale ? 'checked' : ''} style="width:auto"><span><b>💼 Projet de vente / étude</b> — ne réserve aucun stock ; dalles hors catalogue autorisées pour les rendus (plans, pixel map, 3D, PDF)</span></label>
@@ -6271,7 +6278,7 @@ const actions = {
   newProject() { ui.edit = { _new: true, id: uid('prj'), name: '', client: '', venue: '', start: todayISO(), end: addDays(todayISO(), 3), status: 'confirme', color: PROJECT_COLORS[db().projects.length % PROJECT_COLORS.length], notes: '', screens: [], extras: [], crew: [], fleet: [], crewNeeded: 0 }; openModal(projectForm(ui.edit)); },
   editProjectInfo() { ui.edit = deepClone(curProject()); openModal(projectForm(ui.edit)); },
   saveProject() {
-    const p = ui.edit; readForm('[data-jf]', p, 'jf'); p.sale = !!(document.getElementById('pjSale') || {}).checked; if (!p.name) return toast('Donnez un nom au projet', 'warn');
+    const p = ui.edit; readForm('[data-jf]', p, 'jf'); p.sale = !!(document.getElementById('pjSale') || {}).checked || p.cat === 'vente'; if (p.sale && !p.cat) p.cat = 'vente'; if (!p.name) return toast('Donnez un nom au projet', 'warn');
     if (p.end && p.start && p.end < p.start) return toast('La date de retour est avant la date de sortie', 'warn');
     const isNew = p._new; delete p._new;
     if (isNew) db().projects.push(p); else { const i = db().projects.findIndex((x) => x.id === p.id); db().projects[i] = p; }
