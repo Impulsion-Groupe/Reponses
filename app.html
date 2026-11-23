@@ -392,7 +392,8 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
       } catch (e) { /* ignore */ }
       return r;
     },
-    async save(json) { mirror(json); await call('/api/save', { method: 'POST', body: json, headers: { 'Content-Type': 'application/json' } }); return true; },
+    async save(json) { mirror(json); const r = await (await call('/api/save', { method: 'POST', body: json, headers: { 'Content-Type': 'application/json' } })).json().catch(() => ({ ok: true })); return r && r.state ? r.state : 'ok'; },
+    async moveData(json) { return (await call('/api/movedata', { method: 'POST', body: json || '' })).json(); },
     saveSync(json) { mirror(json); if (json.length < 60000) fetch('/api/save', { method: 'POST', body: json, keepalive: true }).catch(() => {}); return true; },
     async backup(reason) { return (await (await call('/api/backup?reason=' + encodeURIComponent(reason || 'manuelle'), { method: 'POST' })).json()).path; },
     async listBackups() { return (await call('/api/backups')).json(); },
@@ -412,7 +413,7 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
    CORE — données, sauvegarde, migrations, utilitaires
    ===================================================================== */
 const SCHEMA_VERSION = 3;
-const APP_VERSION = '3.2.3';
+const APP_VERSION = '3.3.0';
 const IS_DESKTOP = !!(window.desktop && window.desktop.isDesktop);
 const NATIVE_FILES = IS_DESKTOP && typeof window.desktop.saveFile === 'function';
 /* Version téléphone / navigateur (app.html hébergée sur GitHub) : données dans IndexedDB, synchronisées par le partage */
@@ -603,7 +604,7 @@ const Store = {
   async init() {
     let raw = null;
     if (IS_DESKTOP) {
-      const r = await window.desktop.load(); raw = r.raw; this.path = r.path; this.dir = r.dir;
+      const r = await window.desktop.load(); raw = r.raw; this.path = r.path; this.dir = r.dir; this.onedrive = !!r.onedrive || /\\OneDrive/i.test(r.path || '');
     } else if (IS_WEB) {
       try { raw = await WebDB.get('db'); } catch (e) { raw = null; } this.path = 'Ce téléphone (données partagées)';
     } else {
@@ -629,9 +630,14 @@ const Store = {
     clearTimeout(this.timer);
     try {
       const json = this.serialize();
-      if (IS_DESKTOP) await window.desktop.save(json); else if (IS_WEB) await WebDB.set('db', json); else localStorage.setItem('impulsion-led-db', json);
-      this.dirty = false; this.warned = false; setSaveState('ok');
-    } catch (e) { console.error(e); setSaveState('err'); if (!this.warned) { this.warned = true; toast('Sauvegarde impossible : relancez Impulsion Prod. Vos modifications sont gardées en secours.', 'bad'); } }
+      let st = 'ok';
+      if (IS_DESKTOP) st = await window.desktop.save(json); else if (IS_WEB) await WebDB.set('db', json); else localStorage.setItem('impulsion-led-db', json);
+      this.dirty = false; clearTimeout(this.retry);
+      if (st === 'secours') { setSaveState('secours'); saveTrouble('secours'); this.retry = setTimeout(() => this.saveNow(), 20000); } else { this.warned = false; this.fails = 0; setSaveState('ok'); }
+    } catch (e) {
+      console.error(e); this.fails = (this.fails || 0) + 1; setSaveState('err'); saveTrouble('err');
+      clearTimeout(this.retry); this.retry = setTimeout(() => this.saveNow(), Math.min(30000, 3000 * this.fails)); // nouvel essai automatique
+    }
   },
   flushSync() {
     const json = this.serialize();
@@ -643,7 +649,20 @@ const Store = {
 function setSaveState(s) {
   const el = document.getElementById('saveState'); if (!el) return;
   el.className = s === 'ok' ? 'save-ok' : s === 'err' ? 'save-err' : 'save-pending';
-  el.textContent = s === 'ok' ? '● Sauvegardé' : s === 'err' ? '● Erreur de sauvegarde' : '● Enregistrement…';
+  el.textContent = s === 'ok' ? '● Sauvegardé' : s === 'err' ? '● Erreur de sauvegarde — nouvel essai…' : s === 'secours' ? '● Sauvegardé (copie de secours)' : '● Enregistrement…';
+  el.title = s === 'secours' ? 'Le fichier principal (OneDrive ?) est bloqué : tout est enregistré dans une copie de secours sur ce PC, et en ligne si le partage est actif.' : '';
+}
+/* Sauvegarde qui coince (souvent OneDrive) : on propose UNE fois de déplacer les données sur le disque local */
+function saveTrouble(kind) {
+  if (!IS_DESKTOP || Store.troubleShown) return;
+  if (kind === 'err' && (Store.fails || 0) < 2) return;
+  Store.troubleShown = true;
+  const od = Store.onedrive;
+  setTimeout(() => openModal(`<h2>⚠ Le fichier de données est bloqué</h2>
+    <div class="small" style="line-height:1.6">${kind === 'secours' ? 'Rien n\'est perdu : l\'application a tout enregistré dans une <b>copie de secours</b> sur ce PC' : 'L\'application réessaie toute seule'}${typeof syncOn === 'function' && syncOn() ? ', et vos données sont aussi en ligne (partage Google)' : ''}.<br>
+    ${od ? 'La cause est presque toujours <b>OneDrive</b>, qui verrouille le fichier pendant qu\'il le synchronise. Le partage Google fait déjà la copie en ligne : OneDrive n\'est pas utile pour ces données.' : 'Le dossier des données est verrouillé (synchronisation, antivirus…).'}</div>
+    <div class="alert" style="margin-top:12px">✅ Recommandé : <b>mettre les données sur ce PC</b>, hors de OneDrive (<code>${esc('C:\\Users\\…\\Impulsion Prod donnees')}</code>). Vos sauvegardes sont copiées aussi. L'opération prend 2 secondes.</div>
+    <div class="modal-actions"><button data-act="closeModal">Plus tard</button><button class="primary" data-act="moveDataLocal">📁 Mettre mes données sur ce PC</button></div>`), 300);
 }
 
 /* ---------- Fichiers (export) ---------- */
@@ -5165,7 +5184,7 @@ function journalFlush() {
       const parts = [...new Set(Object.keys(Object.assign({}, o, c)).filter((kk) => JSON.stringify(o[kk]) !== JSON.stringify(c[kk])).map((kk) => PART_NAMES[kk] || null).filter(Boolean))];
       journalAdd({ kind: 'mod', type: T.t, ref: id, label: T.label(v.x) || '—', parts }); v.x._mod = stamp; n++;
     });
-    a.forEach((v, id) => { if (!b.has(id)) { journalAdd({ kind: 'del', type: T.t, ref: id, label: T.label(JSON.parse(v.json)) || '—' }); n++; } });
+    a.forEach((v, id) => { if (!b.has(id)) { const lb = T.label(v.x) || '—'; journalAdd({ kind: 'del', type: T.t, ref: id, label: lb }); tombAdd(id, { type: k, label: lb, by: stamp.by, byName: stamp.byName }); trashAdd(k, v.x, 'supprimé sur ce poste'); n++; } });
   });
   if (before.settings !== now.settings) { journalAdd({ kind: 'mod', type: 'settings', ref: 'settings', label: 'Paramètres', parts: [] }); n++; }
   journal.snap = journalTake();
@@ -5189,12 +5208,64 @@ function vJournal() {
   const all = (Store.db.log || []).filter((e) => (f === 'all' || e.type === f) && (fu === 'all' || e.by === fu)).slice(0, 400);
   const days = new Map(); all.forEach((e) => { const d = e.at.slice(0, 10); if (!days.has(d)) days.set(d, []); days.get(d).push(e); });
   const dayTitle = (d) => (d === todayISO() ? 'Aujourd\'hui' : d === addDays(todayISO(), -1) ? 'Hier' : new Date(d + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+  const ntr = ((Store.db.local || {}).trash || []).length;
   return `<div class="page-head"><div><h1>Historique</h1><div class="sub">Qui a fait quoi, sur tous les postes</div></div>
-    <div class="row"><select data-ui-sel="logUser"><option value="all">Tout le monde</option>${users().map((u) => `<option value="${u.id}" ${fu === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
+    <div class="row"><button data-act="trashOpen">🗑 Corbeille${ntr ? ` (${ntr})` : ''}</button>${IS_DESKTOP && window.desktop.listBackups ? '<button data-act="recoverOpen">♻ Récupérer depuis une sauvegarde</button>' : ''}<select data-ui-sel="logUser"><option value="all">Tout le monde</option>${users().map((u) => `<option value="${u.id}" ${fu === u.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('')}</select>
     <select data-ui-sel="logFilter">${[['all', 'Tout'], ['project', 'Projets'], ['reply', 'Réponses techniciens'], ['tech', 'Techniciens'], ['product', 'Catalogue'], ['vehicle', 'Véhicules'], ['user', 'Comptes'], ['settings', 'Paramètres']].map(([v, l]) => `<option value="${v}" ${f === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
   ${all.length ? [...days].map(([d, es]) => `<div class="card log-day"><h3>${dayTitle(d)}</h3>${es.map(logLine).join('')}</div>`).join('') : '<div class="card"><div class="muted">Rien pour l\'instant. Chaque création, modification ou suppression apparaîtra ici avec le nom de la personne.</div></div>'}`;
 }
 const modTxt = (x) => { if (!x || !x._mod) return ''; const u = getUser(x._mod.by); return `Modifié par ${esc(u ? u.name : x._mod.byName || 'ce poste')} ${agoTxt(x._mod.at)}`; };
+
+/* ---------- Corbeille & récupération ---------- */
+const COLL_TXT = { projects: 'Projet', techs: 'Technicien', products: 'Référence', vehicles: 'Véhicule', users: 'Compte' };
+function restoreItems(list, how) {
+  let n = 0; journalFlush();
+  list.forEach(({ coll, item }) => {
+    const arr = (Store.db[coll] = Store.db[coll] || []); if (arr.some((x) => x.id === item.id)) return;
+    arr.push(deepClone(item)); tombRevive(item.id); n++;
+  });
+  journalResync();
+  list.forEach(({ coll, item }) => journalAdd({ kind: 'info', type: (JOURNAL_TYPES[coll] || {}).t || coll, ref: item.id, ic: '♻', text: `a restauré ${(JOURNAL_TYPES[coll] || {}).one || ''} « ${(JOURNAL_TYPES[coll] && JOURNAL_TYPES[coll].label(item)) || item.name || ''} » (${how})` }));
+  Store.save(); return n;
+}
+const journalRecoverActions = {
+  trashOpen() {
+    const tr = (Store.db.local && Store.db.local.trash) || [];
+    openModal(`<h2>🗑 Corbeille de ce poste</h2><div class="small muted">Tout ce qui a été supprimé ici, ou retiré par la synchronisation (supprimé sur un autre poste), est gardé ici : 80 derniers éléments.</div>
+      ${tr.length ? `<table style="margin-top:12px">${tr.map((t, i) => { const here = (Store.db[t.coll] || []).some((x) => x.id === t.item.id);
+        return `<tr><td><b>${esc(t.label)}</b><div class="tiny muted">${COLL_TXT[t.coll] || t.coll} · ${new Date(t.at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · ${esc(t.why || '')}</div></td>
+        <td class="num">${here ? '<span class="tag ok">Présent</span>' : `<button class="sm primary" data-act="trashRestore" data-i="${i}">♻ Restaurer</button>`}</td></tr>`; }).join('')}</table>` : '<div class="card muted" style="margin-top:12px">La corbeille est vide.</div>'}
+      <div class="modal-actions"><button data-act="closeModal">Fermer</button></div>`);
+  },
+  trashRestore(el) {
+    const t = Store.db.local.trash[+el.dataset.i]; if (!t) return;
+    const n = restoreItems([{ coll: t.coll, item: t.item }], 'corbeille'); Store.db.local.trash.splice(+el.dataset.i, 1);
+    journalRecoverActions.trashOpen(); render(); toast(n ? `« ${t.label} » restauré ✔ — il revient aussi sur les autres postes` : 'Déjà présent');
+  },
+  async recoverOpen() {
+    let list = []; try { list = await window.desktop.listBackups(); } catch (e) { return toast('Sauvegardes inaccessibles : ' + e.message, 'bad'); }
+    openModal(`<h2>♻ Récupérer depuis une sauvegarde</h2><div class="small muted">Choisissez une sauvegarde : l'application liste les projets, techniciens, références et véhicules qu'elle contient et qui n'existent plus aujourd'hui. Vous cochez ce que vous voulez récupérer, <b>rien d'autre n'est modifié</b>.</div>
+      <label class="f" style="margin-top:12px">Sauvegarde<select id="recBk">${list.map((n) => `<option value="${esc(n)}">${esc(n.replace(/^sauvegarde_|\.json$/g, '').replace(/_/g, ' '))}</option>`).join('')}</select></label>
+      <div id="recList" style="margin-top:12px"></div>
+      <div class="modal-actions"><button data-act="closeModal">Fermer</button><button data-act="recoverScan">Voir le contenu</button><button class="primary" data-act="recoverGo">♻ Récupérer la sélection</button></div>`);
+    if (list.length) journalRecoverActions.recoverScan();
+  },
+  async recoverScan() {
+    const name = document.getElementById('recBk').value; const box = document.getElementById('recList'); box.innerHTML = '<div class="muted">Lecture…</div>';
+    try {
+      const db = JSON.parse(await window.desktop.readBackup(name)); const items = [];
+      Object.keys(COLL_TXT).forEach((k) => (db[k] || []).forEach((x) => { if (!(Store.db[k] || []).some((y) => y.id === x.id)) items.push({ coll: k, item: x }); }));
+      ui.recItems = items;
+      box.innerHTML = items.length ? `<div class="small"><b>${items.length}</b> élément(s) absent(s) aujourd'hui :</div><table>${items.map((x, i) => `<tr><td><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-rec="${i}" ${x.coll === 'projects' ? 'checked' : ''} style="width:auto"><span><b>${esc((JOURNAL_TYPES[x.coll] && JOURNAL_TYPES[x.coll].label(x.item)) || x.item.name || '—')}</b> <span class="tiny muted">${COLL_TXT[x.coll]}${x.item.start ? ' · ' + fmtDate(x.item.start) : ''}</span></span></label></td></tr>`).join('')}</table>`
+        : '<div class="card muted">Rien de manquant dans cette sauvegarde : tout ce qu\'elle contient existe encore.</div>';
+    } catch (e) { box.innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
+  },
+  recoverGo() {
+    const sel = [...document.querySelectorAll('[data-rec]:checked')].map((c) => ui.recItems[+c.dataset.rec]).filter(Boolean);
+    if (!sel.length) return toast('Cochez au moins un élément', 'warn');
+    const n = restoreItems(sel, 'sauvegarde'); closeModal(); render(); toast(`${n} élément(s) récupéré(s) ✔ — ils reviennent aussi sur les autres postes`);
+  }
+};
 
 ;
 /* js/sync.js */
@@ -5257,6 +5328,46 @@ function pick3(bv, lv, rv, path) {
   return merge3(bv, lv, rv, path);
 }
 
+/* ---------- Protection contre les disparitions ----------
+   Un projet (technicien, référence, véhicule, compte) n'est supprimé des autres postes QUE s'il a été
+   supprimé volontairement quelque part : la suppression laisse une « pierre tombale » (db.tomb).
+   Un poste resté sur d'anciennes données, une sauvegarde restaurée ou des données en ligne réinitialisées
+   ne peuvent donc plus faire disparaître un élément : il est conservé et renvoyé.
+   Tout élément retiré par la synchronisation part dans la corbeille de ce poste (Historique → Corbeille). */
+const SYNC_COLLS = ['projects', 'products', 'techs', 'vehicles', 'users'];
+const tombStamp = (e) => Date.parse((e && (e.revived || e.at)) || 0) || 0;
+function tombAdd(id, info) { const t = (Store.db.tomb = Store.db.tomb || {}); t[id] = Object.assign({ at: new Date().toISOString() }, info); }
+function tombRevive(id) { const t = (Store.db.tomb = Store.db.tomb || {}); if (t[id]) t[id].revived = new Date().toISOString(); }
+const tombDead = (t, id) => !!(t && t[id] && !t[id].revived);
+function tombMerge(a, b) { const out = Object.assign({}, a || {}); Object.entries(b || {}).forEach(([id, e]) => { if (!out[id] || tombStamp(e) > tombStamp(out[id])) out[id] = e; }); const lim = Date.now() - 400 * 864e5; Object.keys(out).forEach((id) => { if (tombStamp(out[id]) < lim) delete out[id]; }); return out; }
+function trashAdd(coll, item, why) {
+  if (!item || !Store.db.local) return; const tr = (Store.db.local.trash = Store.db.local.trash || []);
+  const T = JOURNAL_TYPES[coll]; tr.unshift({ id: uid('tr'), at: new Date().toISOString(), coll, label: (T && T.label(item)) || item.name || '—', why: why || '', item: deepClone(item) });
+  if (tr.length > 80) tr.length = 80;
+}
+/* Fusion d'une liste principale : suppression acceptée uniquement avec pierre tombale */
+function mergeColl(b, l, r, tombs, coll, lost) {
+  b = isIdArr(b) ? b : []; l = isIdArr(l) ? l : []; r = isIdArr(r) ? r : [];
+  const bm = new Map(b.map((x) => [x.id, x])); const lm = new Map(l.map((x) => [x.id, x])); const rm = new Map(r.map((x) => [x.id, x]));
+  const order = r.map((x) => x.id);
+  l.forEach((x, i) => { if (!rm.has(x.id)) { const prev = i > 0 ? order.indexOf(l[i - 1].id) : -1; order.splice(prev + 1, 0, x.id); } });
+  const out = [];
+  order.forEach((id) => {
+    const bv = bm.get(id), lv = lm.get(id), rv = rm.get(id); const dead = tombDead(tombs, id);
+    if (lv && rv) { if (dead) { lost.push({ coll, item: lv, why: 'supprimé sur un autre poste' }); return; } out.push(merge3(bv, lv, rv, '.' + coll + '[' + id + ']')); return; }
+    if (lv) { if (dead) { if (bv) lost.push({ coll, item: lv, why: 'supprimé sur un autre poste' }); return; } out.push(lv); return; } // absent en ligne sans suppression volontaire : on le garde
+    if (rv) { if (dead) return; out.push(rv); } // absent ici sans suppression volontaire : on le reprend
+  });
+  return out;
+}
+function mergeTop(b, l, r) {
+  b = isObj(b) ? b : {}; const tombs = tombMerge(tombMerge(b.tomb, r.tomb), l.tomb); const lost = [];
+  const rest = (o) => { const c = Object.assign({}, o); SYNC_COLLS.forEach((k) => delete c[k]); delete c.tomb; return c; };
+  const out = merge3(rest(b), rest(l), rest(r));
+  SYNC_COLLS.forEach((k) => { if (l[k] !== undefined || r[k] !== undefined) out[k] = mergeColl(b[k], l[k], r[k], tombs, k, lost); });
+  out.tomb = tombs; return { merged: out, lost };
+}
+
 /* Partie partagée des données (sans ce qui est propre au poste) */
 function syncView(db) {
   const v = deepClone(Object.assign({}, db, { local: undefined, updatedAt: undefined, appVersion: undefined }));
@@ -5297,11 +5408,19 @@ async function syncCycle(manual) {
       const res = await withTimeout(remotePost(Object.assign({ action: 'dbget', rev: cfg.rev || 0 }, syncMeta())), 45000);
       syncState.leader = !!res.leader; syncState.presence = res.presence || {}; syncState.serverNow = res.now;
       let local = syncView(Store.db);
-      if (!res.data && res.rev !== cfg.rev) { cfg.rev = res.rev; cfg.base = null; } // données en ligne effacées : on renvoie celles de ce PC
+      if (!res.data && res.rev > 0 && res.rev !== cfg.rev) throw new Error('Données en ligne illisibles pour l\'instant : rien n\'est envoyé, nouvel essai dans 20 s.');
+      if (!res.data && res.rev !== cfg.rev) { cfg.rev = res.rev; cfg.base = null; } // relais vide : on y renvoie les données de ce poste
       if (res.data && res.rev !== cfg.rev) {
         if ((res.data.schemaVersion || 0) > SCHEMA_VERSION) throw new Error('Les données en ligne viennent d\'une version plus récente de l\'application : installez la dernière version sur ce PC.');
-        const merged = merge3(cfg.base || res.data, local, res.data);
-        if (!deq(merged, local)) { applyShared(merged); changed = true; local = syncView(Store.db); }
+        // base inconnue ou relais revenu en arrière : fusion « union » (rien n'est supprimé sans pierre tombale)
+        const base = cfg.base && res.rev > (cfg.rev || 0) ? cfg.base : {};
+        const { merged, lost } = mergeTop(base, local, res.data);
+        if (!deq(merged, local)) {
+          lost.forEach((x) => trashAdd(x.coll, x.item, x.why));
+          applyShared(merged); changed = true; local = syncView(Store.db);
+          lost.forEach((x) => { const tb = (merged.tomb || {})[x.item.id] || {}; journalAdd({ kind: 'info', type: JOURNAL_TYPES[x.coll] ? JOURNAL_TYPES[x.coll].t : x.coll, ic: '🗑', byName: tb.byName || '', by: tb.by || '', text: `a supprimé ${JOURNAL_TYPES[x.coll] ? JOURNAL_TYPES[x.coll].one : ''} « ${(JOURNAL_TYPES[x.coll] && JOURNAL_TYPES[x.coll].label(x.item)) || x.item.name || ''} » (sur un autre poste — récupérable dans la corbeille)` }); });
+          if (lost.length) { journalResync(); local = syncView(Store.db); }
+        }
         cfg.base = res.data; cfg.rev = res.rev;
       }
       if (!cfg.base || !deq(local, cfg.base)) {
@@ -5368,7 +5487,10 @@ async function firstContact() {
 }
 async function useRemote(res) {
   if (IS_DESKTOP) { try { await window.desktop.backup('avant-partage'); } catch (e) { /* ignore */ } }
-  const cfg = syncCfg(); applyShared(res.data); Store.db.local.sync = Object.assign(cfg, { on: true, rev: res.rev, base: deepClone(res.data) });
+  const cfg = syncCfg(); const mine = syncView(Store.db);
+  // rejoindre : ce qui n'existait que sur ce poste part dans sa corbeille (récupérable)
+  if (cfg.on) SYNC_COLLS.forEach((k) => (mine[k] || []).forEach((x) => { if (!(res.data[k] || []).some((y) => y.id === x.id)) trashAdd(k, x, 'remplacé par les données partagées'); }));
+  applyShared(res.data); Store.db.local.sync = Object.assign(cfg, { on: true, rev: res.rev, base: deepClone(res.data) });
   syncState.leader = !!res.leader; syncState.presence = res.presence || {};
   Store.saveNow(); syncState.last = Date.now(); journalResync(); startSync();
 }
@@ -5847,7 +5969,8 @@ function vSettings() {
   <div class="card"><h3>Données & sauvegardes</h3>
     <div class="small muted">Fichier de données</div><div style="word-break:break-all;margin:4px 0 14px"><code>${esc(Store.path)}</code></div>
     <div class="alert ok">Enregistrement automatique à chaque modification, sauvegarde horaire et à chaque démarrage (60 dernières conservées). Les mises à jour de l'application conservent et convertissent vos données automatiquement.</div>
-    <div class="row">${IS_DESKTOP ? `<button data-act="chooseFolder">📁 Changer de dossier (OneDrive, serveur…)</button><button data-act="openFolder">Ouvrir le dossier</button>` : ''}
+    ${IS_DESKTOP && Store.onedrive && window.desktop.moveData ? `<div class="alert warn" style="margin:8px 0">Vos données sont dans <b>OneDrive</b>, qui bloque parfois le fichier (« Erreur de sauvegarde »). Le partage Google fait déjà la copie en ligne : mieux vaut les garder sur ce PC. <button class="sm primary" data-act="moveDataLocal" style="margin-left:6px">📁 Mettre mes données sur ce PC</button></div>` : ''}
+    <div class="row">${IS_DESKTOP ? `<button data-act="chooseFolder">📁 Changer de dossier (serveur, clé…)</button><button data-act="openFolder">Ouvrir le dossier</button>` : ''}
       <button data-act="backupNow">💾 Sauvegarder maintenant</button><button data-act="exportBackup">⇩ Exporter (.json)</button><button data-act="importBackup">⇧ Importer (.json)</button></div>
     ${IS_DESKTOP ? `<hr class="sep"><h3>Restaurer une sauvegarde automatique</h3><div id="backupList" class="small muted">Chargement…</div>` : ''}
   </div></div>`;
@@ -6127,7 +6250,7 @@ function exportPDF(p, screens) {
 
 /* =====================================================================
    ÉVÉNEMENTS GLOBAUX
-   ===================================================================== */Object.assign(actions, teamActions, replyActions, sceneActions, boardActions, boardMapActions, visualsActions, decoActions, linkActions, archActions, venueActions, prodFileActions, customActions, espaceActions, roadmapActions, calActions, pagesActions, accountActions, syncActions);
+   ===================================================================== */Object.assign(actions, teamActions, replyActions, sceneActions, boardActions, boardMapActions, visualsActions, decoActions, linkActions, archActions, venueActions, prodFileActions, customActions, espaceActions, journalRecoverActions, { async moveDataLocal() { try { const r = await window.desktop.moveData(Store.serialize()); Store.path = r.path; Store.onedrive = false; document.getElementById('dataPath').textContent = r.path; closeModal(); await Store.saveNow(); render(); toast('Données déplacées sur ce PC ✔ ' + r.dir); } catch (e) { toast('Déplacement impossible : ' + e.message, 'bad'); } } }, roadmapActions, calActions, pagesActions, accountActions, syncActions);
 
 function bindEvents() {
   document.addEventListener('click', (e) => {
