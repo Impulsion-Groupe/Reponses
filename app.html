@@ -412,7 +412,7 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
    CORE — données, sauvegarde, migrations, utilitaires
    ===================================================================== */
 const SCHEMA_VERSION = 3;
-const APP_VERSION = '3.2.0';
+const APP_VERSION = '3.2.1';
 const IS_DESKTOP = !!(window.desktop && window.desktop.isDesktop);
 const NATIVE_FILES = IS_DESKTOP && typeof window.desktop.saveFile === 'function';
 /* Version téléphone / navigateur (app.html hébergée sur GitHub) : données dans IndexedDB, synchronisées par le partage */
@@ -6265,7 +6265,8 @@ function webJoinHTML(err) {
     <textarea id="webCode" rows="4" style="width:100%;margin-top:12px;font-family:monospace;font-size:13px" placeholder="ILM1-…"></textarea>
     ${err ? `<div class="alert bad" style="margin-top:10px">${esc(err)}</div>` : ''}
     <button class="primary" style="width:100%;margin-top:12px;min-height:48px;font-size:16px" onclick="webJoin(document.getElementById('webCode').value)">Se connecter</button>
-    <div class="tiny muted" style="margin-top:14px">Le code donne accès à toutes les données de l'entreprise : réservé à la direction.</div></div>`;
+    <div class="tiny muted" style="margin-top:14px">Déjà connecté dans le navigateur mais pas depuis l'icône ? Sur iPhone, l'icône a sa propre mémoire : collez le code une fois ici, ou supprimez l'icône et rajoutez-la depuis le navigateur <b>après</b> vous être connecté.</div>
+    <div class="tiny muted" style="margin-top:8px">Le code donne accès à toutes les données de l'entreprise : réservé à la direction.</div></div>`;
 }
 function showWebJoin(err) {
   let el = document.getElementById('login'); if (!el) { el = document.createElement('div'); el.id = 'login'; document.body.appendChild(el); }
@@ -6279,7 +6280,10 @@ async function webJoin(code) {
   try {
     const res = await firstContact(); if (!res.rev || !res.data) throw new Error('Aucune donnée partagée : activez d\'abord le partage sur le PC (Comptes & partage).');
     await useRemote(res); localInfo().userId = null; await Store.saveNow();
-    location.replace(location.pathname + location.search);
+    // le code reste dans l'adresse (#j=…) : sur iPhone, l'icône de l'écran d'accueil a son propre stockage,
+    // elle se reconnecte ainsi toute seule au premier lancement
+    try { history.replaceState(null, '', location.pathname + location.search + '#j=' + encodeURIComponent(String(code).trim())); } catch (e) { /* */ }
+    location.reload();
   } catch (e) { showWebJoin(typeof syncErr === 'function' ? syncErr(e) : e.message); }
 }
 /* Appelée au démarrage : false = on reste sur l'écran de connexion */
@@ -6288,9 +6292,10 @@ async function webBoot() {
   document.body.classList.add('is-web');
   const dp = document.getElementById('dataPath'); if (dp) dp.textContent = 'Téléphone — données partagées';
   if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) { /* */ } }
-  const m = location.hash.match(/c=(ILM1-[A-Za-z0-9+/=%]+)/);
-  if (m) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* */ } await webJoin(decodeURIComponent(m[1])); return false; }
-  if (!syncOn()) { showWebJoin(); return false; }
+  const m = location.hash.match(/[#&]c=(ILM1-[A-Za-z0-9+/=%]+)/);
+  if (m) { await webJoin(decodeURIComponent(m[1])); return false; }
+  const j = location.hash.match(/[#&]j=(ILM1-[A-Za-z0-9+/=%]+)/);
+  if (!syncOn()) { if (j) { await webJoin(decodeURIComponent(j[1])); return false; } showWebJoin(); return false; }
   return true;
 }
 /* lien d'installation ouvert alors que la page est déjà affichée */
