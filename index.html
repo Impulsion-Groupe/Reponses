@@ -287,7 +287,10 @@ if (T) {
   api({ action: 'info', t: T }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur'); setBrand(j.company); runReply({ t: T, info: j.info, last: j.last, company: j.company || COMPANY }); }).catch(fail);
 } else if (E) {
   useCss('css-r'); useCss('css-e'); document.getElementById('sub').textContent = 'MES BOOKINGS';
-  var lm = document.createElement('link'); lm.rel = 'manifest'; lm.href = 'espace.webmanifest'; document.head.appendChild(lm);
+  /* manifeste construit ici : l'icône de l'écran d'accueil rouvre CET espace (lien personnel), même sans mémoire partagée avec le navigateur */
+  try { var base = location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, ''); var mf = { name: 'Mes bookings', short_name: 'Mes bookings', start_url: base + '?e=' + E, scope: base, display: 'standalone', background_color: '#0a1014', theme_color: '#0a1014', lang: 'fr', icons: [192, 512].map(function (z) { return { src: base + 'icon-' + z + '.png', sizes: z + 'x' + z, type: 'image/png' }; }) };
+    var lm = document.createElement('link'); lm.rel = 'manifest'; lm.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(mf)); document.head.appendChild(lm);
+    if (!/[?&]e=/.test(location.search)) history.replaceState(null, '', base + '?e=' + E); } catch (x) {}
   var pInd = api({ action: 'indget', e: E }).then(function (j) { if (!j || !j.ok) { IND.ok = false; return; } if (j.ind) { IND.days = j.ind.days || []; IND.note = j.ind.note || ''; IND.got = true; } }).catch(function () { IND.ok = false; });
   api({ action: 'fdr', f: E }).then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'Erreur'); if (!j.d || j.d.kind !== 'espace') throw new Error('Cet espace n\'existe plus : demandez un nouveau lien.'); setBrand(j.d.company || j.company);
     return pInd.then(function () { if (!IND.got && j.d.indispo) { IND.days = j.d.indispo.days || []; IND.note = j.d.indispo.note || ''; } runEspace({ d: j.d }); }); }).catch(fail);
