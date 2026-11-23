@@ -413,7 +413,7 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
    CORE — données, sauvegarde, migrations, utilitaires
    ===================================================================== */
 const SCHEMA_VERSION = 3;
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.3.2';
 const IS_DESKTOP = !!(window.desktop && window.desktop.isDesktop);
 const NATIVE_FILES = IS_DESKTOP && typeof window.desktop.saveFile === 'function';
 /* Version téléphone / navigateur (app.html hébergée sur GitHub) : données dans IndexedDB, synchronisées par le partage */
@@ -5017,6 +5017,11 @@ const avatar = (u, size = 34) => `<span class="avatar" style="width:${size}px;he
 const needLogin = () => users().length > 0 && !curUser();
 
 /* ---------- Écran de connexion ---------- */
+/* État des données affiché sous la connexion (diagnostic en cas de souci) */
+function loginDiag() {
+  const d = Store.db || {}; const n = (k) => (d[k] || []).length; const sy = (d.local && d.local.sync) || {};
+  return `Données : ${n('projects')} projet(s) · ${n('techs')} technicien(s) · ${n('products')} référence(s) · partage ${sy.on ? 'actif' : 'inactif'} · v${APP_VERSION}<br><span style="word-break:break-all">${esc(Store.path || '')}</span>`;
+}
 const loginState = { userId: null, err: '' };
 function loginHTML() {
   const list = users(); const sel = getUser(loginState.userId) || (list.length === 1 ? list[0] : null);
@@ -5029,7 +5034,9 @@ function loginHTML() {
       ${sel.pwd ? `<input type="password" id="loginPwd" placeholder="Mot de passe de ${esc(sel.name)}" autocomplete="current-password">` : '<div class="tiny muted" style="text-align:center">Pas de mot de passe sur ce compte.</div>'}
       ${loginState.err ? `<div class="alert bad" style="margin-top:8px">${esc(loginState.err)}</div>` : ''}
       <label class="row small" style="gap:8px;justify-content:center;margin-top:10px"><input type="checkbox" id="loginRemember" ${remember ? 'checked' : ''}>Rester connecté sur ce PC</label>
-      <button class="primary" data-act="loginGo" style="width:100%;margin-top:12px">Entrer ✨</button></form>` : ''}
+      <button class="primary" data-act="loginGo" style="width:100%;margin-top:12px">Entrer ✨</button>
+      ${sel.pwd ? `<div style="text-align:center;margin-top:10px"><a class="tiny" data-act="loginForgot" style="cursor:pointer">Mot de passe oublié ou refusé ?</a></div>` : ''}</form>` : ''}
+    <div class="tiny muted" style="text-align:center;margin-top:16px;line-height:1.5">${loginDiag()}</div>
   </div>`;
 }
 function showLogin() {
@@ -5096,6 +5103,14 @@ const accountActions = {
     if (!pwdOk(u, pw ? pw.value : '')) { loginState.err = 'Mot de passe incorrect'; showLogin(); return; }
     const L = localInfo(); L.userId = u.id; L.remember = !!(document.getElementById('loginRemember') || {}).checked;
     loginState.err = ''; Store.saveNow(); hideLogin(); userChip(); render(); toast(`Bonjour ${u.name} 👋`);
+  },
+  loginForgot() {
+    const u = getUser(loginState.userId) || (users().length === 1 ? users()[0] : null); if (!u) return;
+    const np = prompt(`Nouveau mot de passe pour ${u.name} (au moins 3 caractères).\nAstuce : le navigateur propose parfois un ancien mot de passe enregistré — tapez-le plutôt à la main.`);
+    if (np == null) return; if (np.length < 3) { loginState.err = 'Mot de passe trop court'; return showLogin(); }
+    u.pwd = makePwd(np); const L = localInfo(); L.userId = u.id; L.remember = true;
+    if (typeof journalAdd === 'function') journalAdd({ kind: 'info', type: 'user', ref: u.id, ic: '🔑', text: `mot de passe de ${u.name} réinitialisé sur ce poste` });
+    loginState.err = ''; Store.save(); hideLogin(); userChip(); render(); toast(`Mot de passe changé ✔ Bonjour ${u.name} 👋`);
   },
   logout() { const L = localInfo(); journalFlush(); L.userId = null; Store.saveNow(); userChip(); if (needLogin()) showLogin(); else render(); },
   userNew() { ui.uEdit = { name: '', title: users().length ? 'Direction' : 'Directeur technique', color: USER_COLORS[users().length % USER_COLORS.length] }; openModal(userForm(ui.uEdit)); },
@@ -5245,7 +5260,7 @@ const journalRecoverActions = {
   async recoverOpen() {
     let list = []; try { list = await window.desktop.listBackups(); } catch (e) { return toast('Sauvegardes inaccessibles : ' + e.message, 'bad'); }
     openModal(`<h2>♻ Récupérer depuis une sauvegarde</h2><div class="small muted">Choisissez une sauvegarde : l'application liste les projets, techniciens, références et véhicules qu'elle contient et qui n'existent plus aujourd'hui. Vous cochez ce que vous voulez récupérer, <b>rien d'autre n'est modifié</b>.</div>
-      <label class="f" style="margin-top:12px">Sauvegarde<select id="recBk">${list.map((n) => `<option value="${esc(n)}">${esc(n.replace(/^sauvegarde_|\.json$/g, '').replace(/_/g, ' '))}</option>`).join('')}</select></label>
+      <label class="f" style="margin-top:12px">Sauvegarde<select id="recBk"><option value="*">🔎 Chercher dans TOUTES les sauvegardes (${list.length})</option>${list.map((n) => `<option value="${esc(n)}">${esc(n.replace(/^sauvegarde_|\.json$/g, '').replace(/_/g, ' '))}</option>`).join('')}</select></label>
       <div id="recList" style="margin-top:12px"></div>
       <div class="modal-actions"><button data-act="closeModal">Fermer</button><button data-act="recoverScan">Voir le contenu</button><button class="primary" data-act="recoverGo">♻ Récupérer la sélection</button></div>`);
     if (list.length) journalRecoverActions.recoverScan();
@@ -5253,10 +5268,16 @@ const journalRecoverActions = {
   async recoverScan() {
     const name = document.getElementById('recBk').value; const box = document.getElementById('recList'); box.innerHTML = '<div class="muted">Lecture…</div>';
     try {
-      const db = JSON.parse(await window.desktop.readBackup(name)); const items = [];
-      Object.keys(COLL_TXT).forEach((k) => (db[k] || []).forEach((x) => { if (!(Store.db[k] || []).some((y) => y.id === x.id)) items.push({ coll: k, item: x }); }));
+      const names = name === '*' ? await window.desktop.listBackups() : [name]; // du plus récent au plus ancien
+      const items = []; const seen = new Set(); let k0 = 0;
+      for (const nm of names) {
+        k0++; if (names.length > 1) box.innerHTML = `<div class="muted">Lecture des sauvegardes… ${k0} / ${names.length}</div>`;
+        let db; try { db = JSON.parse(await window.desktop.readBackup(nm)); } catch (e) { continue; }
+        Object.keys(COLL_TXT).forEach((k) => (db[k] || []).forEach((x) => { if (seen.has(x.id) || (Store.db[k] || []).some((y) => y.id === x.id)) return; seen.add(x.id); items.push({ coll: k, item: x, from: nm }); }));
+      }
+      items.sort((a, b) => (a.coll === 'projects' ? 0 : 1) - (b.coll === 'projects' ? 0 : 1));
       ui.recItems = items;
-      box.innerHTML = items.length ? `<div class="small"><b>${items.length}</b> élément(s) absent(s) aujourd'hui :</div><table>${items.map((x, i) => `<tr><td><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-rec="${i}" ${x.coll === 'projects' ? 'checked' : ''} style="width:auto"><span><b>${esc((JOURNAL_TYPES[x.coll] && JOURNAL_TYPES[x.coll].label(x.item)) || x.item.name || '—')}</b> <span class="tiny muted">${COLL_TXT[x.coll]}${x.item.start ? ' · ' + fmtDate(x.item.start) : ''}</span></span></label></td></tr>`).join('')}</table>`
+      box.innerHTML = items.length ? `<div class="small"><b>${items.length}</b> élément(s) absent(s) aujourd'hui :</div><table>${items.map((x, i) => `<tr><td><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-rec="${i}" ${x.coll === 'projects' ? 'checked' : ''} style="width:auto"><span><b>${esc((JOURNAL_TYPES[x.coll] && JOURNAL_TYPES[x.coll].label(x.item)) || x.item.name || '—')}</b> <span class="tiny muted">${COLL_TXT[x.coll]}${x.item.start ? ' · ' + fmtDate(x.item.start) : ''}${x.from && names.length > 1 ? ' · sauvegarde du ' + esc(x.from.replace(/^sauvegarde_|\.json$/g, '').replace(/_.*$/, '')) : ''}</span></span></label></td></tr>`).join('')}</table>`
         : '<div class="card muted">Rien de manquant dans cette sauvegarde : tout ce qu\'elle contient existe encore.</div>';
     } catch (e) { box.innerHTML = `<div class="alert bad">${esc(e.message)}</div>`; }
   },
