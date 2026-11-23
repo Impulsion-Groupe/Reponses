@@ -403,6 +403,9 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
     async openExternal(url) { await call('/api/open', { method: 'POST', body: url }); return true; },
     async remotePost(url, body) { return (await call('/api/remotepost?url=' + encodeURIComponent(url), { method: 'POST', body })).text(); },
     async remoteGet(url) { return (await call('/api/remote', { method: 'POST', body: url })).text(); },
+    async github(o) { return (await call('/api/github', { method: 'POST', body: JSON.stringify(o) })).json(); },
+    async selfZip() { return (await call('/api/selfzip', { method: 'POST' })).json(); },
+    async update(url) { return (await call('/api/update', { method: 'POST', body: url })).json(); },
     async hasWhatsApp() { return (await (await call('/api/haswhatsapp')).json()).ok; }
   };
 })();
@@ -413,7 +416,7 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
    CORE — données, sauvegarde, migrations, utilitaires
    ===================================================================== */
 const SCHEMA_VERSION = 3;
-const APP_VERSION = '3.6.0';
+const APP_VERSION = '3.7.0';
 const IS_DESKTOP = !!(window.desktop && window.desktop.isDesktop);
 const NATIVE_FILES = IS_DESKTOP && typeof window.desktop.saveFile === 'function';
 /* Version téléphone / navigateur (app.html hébergée sur GitHub) : données dans IndexedDB, synchronisées par le partage */
@@ -2398,12 +2401,12 @@ function mobileManifest(kind) {
     : { id: './?espace=1', name: `Mes bookings — ${co}`, short_name: 'Mes bookings', description: `Mes dates et feuilles de route ${co}`, start_url: './?espace=1', scope: './', display: 'standalone', orientation: 'portrait', background_color: '#0a1014', theme_color: '#0a1014', lang: 'fr', icons }, null, 1);
 }
 const MOBILE_SW = `/* Impulsion Prod — fonctionnement hors connexion (dernière version consultée) */
-const C = 'ip-pages-v1';
+const C = 'ip-pages-v2';
 self.addEventListener('install', (e) => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (e) => {
   const r = e.request; if (r.method !== 'GET' || new URL(r.url).origin !== location.origin) return;
-  e.respondWith(fetch(r).then((res) => { const cp = res.clone(); caches.open(C).then((c) => c.put(r, cp)); return res; }).catch(() => caches.match(r, { ignoreSearch: true })));
+  e.respondWith(fetch(r.url, { cache: 'no-store', credentials: 'same-origin' }).then((res) => { const cp = res.clone(); caches.open(C).then((c) => c.put(r, cp)); return res; }).catch(() => caches.match(r, { ignoreSearch: true })));
 });
 `;
 function packFiles() {
@@ -5774,6 +5777,132 @@ const syncActions = {
 };
 
 ;
+/* js/update.js */
+/* =====================================================================
+   MISES À JOUR AUTOMATIQUES
+   1) Publication automatique sur GitHub (pages des techniciens + application téléphone + mise à jour des PC)
+      dès qu'une nouvelle version est installée sur ce PC — plus de pack à déposer à la main.
+   2) Mise à jour des PC en un clic : chaque PC voit qu'une version plus récente est publiée et propose
+      « Mettre à jour » (les données ne sont jamais touchées).
+   3) Téléphones : la page vérifie la version en ligne et propose « Actualiser ».
+   ===================================================================== */
+const vercmp = (a, b) => { const x = String(a || '0').split('.').map(Number), y = String(b || '0').split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); } return 0; };
+const updState = { latest: null, checking: false, publishing: false, pubMsg: '', banner: false };
+function ghRepo() {
+  const m = String(Store.db.settings.pagesUrl || '').match(/^https:\/\/([\w-]+)\.github\.io\/([\w.-]+)\/?/i);
+  return m ? { owner: m[1], repo: m[2] } : null;
+}
+const ghToken = () => (localInfo().ghToken || '').trim();
+const canGhPublish = () => IS_DESKTOP && window.desktop.github && !!ghRepo() && !!ghToken();
+
+async function ghCall(method, path, data) {
+  const r = await window.desktop.github({ method, path, token: ghToken(), data });
+  let body = null; try { body = JSON.parse(r.body || 'null'); } catch (e) { body = r.body; }
+  return { status: r.status, body };
+}
+async function ghPutFile(path, b64, msg) {
+  const g = ghRepo(); const base = `/repos/${g.owner}/${g.repo}/contents/${path}`;
+  const cur = await ghCall('GET', base);
+  if (cur.status === 401 || cur.status === 403) throw new Error('Clé GitHub refusée : vérifiez qu\'elle a l\'accès « Contents : Read and write » sur le dépôt ' + g.repo + '.');
+  const data = { message: msg, content: b64 }; if (cur.status === 200 && cur.body && cur.body.sha) data.sha = cur.body.sha;
+  const put = await ghCall('PUT', base, data);
+  if (put.status !== 200 && put.status !== 201) throw new Error(`GitHub (${put.status}) : ${(put.body && put.body.message) || 'envoi impossible'} — ${path}`);
+}
+const b64OfBytes = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); };
+/* Publie tout : pack (pages + appli téléphone) puis mise à jour des PC (zip + version.json en dernier) */
+async function ghPublishAll(manual) {
+  if (!canGhPublish() || updState.publishing) return;
+  updState.publishing = true; updState.pubMsg = 'Publication…'; refreshUpdCard();
+  try {
+    const files = packFiles(); let i = 0;
+    for (const f of files) { i++; updState.pubMsg = `Publication ${i}/${files.length + 2} : ${f.name}`; refreshUpdCard(); await ghPutFile(f.name, b64OfBytes(f.data), `Impulsion Prod ${APP_VERSION} : ${f.name}`); }
+    updState.pubMsg = 'Publication de la mise à jour des PC…'; refreshUpdCard();
+    const z = await window.desktop.selfZip(); await ghPutFile('maj/impulsion-prod.zip', z.b64, `Impulsion Prod ${APP_VERSION} : mise à jour des PC`);
+    const info = { version: APP_VERSION, at: new Date().toISOString(), by: curUserName() };
+    await ghPutFile('maj/version.json', btoa(unescape(encodeURIComponent(JSON.stringify(info)))), `Impulsion Prod ${APP_VERSION}`);
+    localInfo().ghPublished = APP_VERSION; localInfo().ghPublishedAt = info.at; Store.save();
+    updState.pubMsg = ''; if (manual) toast(`Publié sur GitHub ✔ (v${APP_VERSION}) — téléphones et autres PC à jour dans 1 à 2 minutes`);
+  } catch (e) { updState.pubMsg = '⚠ ' + e.message; if (manual) toast(e.message, 'bad'); }
+  finally { updState.publishing = false; refreshUpdCard(); }
+}
+/* PC : y a-t-il une version plus récente publiée ? */
+async function checkUpdate(manual) {
+  if (!IS_DESKTOP || !window.desktop.update || !pagesActive() || updState.checking) return;
+  updState.checking = true;
+  try {
+    const txt = await window.desktop.remoteGet(`${pagesBase()}maj/version.json?t=${Date.now()}`);
+    const j = JSON.parse(txt); updState.latest = j;
+    if (vercmp(j.version, APP_VERSION) > 0) showUpdateBanner(j); else if (manual) toast(`Vous avez la dernière version (${APP_VERSION}) ✔`);
+  } catch (e) { if (manual) toast('Pas de mise à jour publiée pour l\'instant', 'warn'); }
+  finally { updState.checking = false; refreshUpdCard(); }
+}
+function showUpdateBanner(j) {
+  let el = document.getElementById('updBanner');
+  if (!el) { el = document.createElement('div'); el.id = 'updBanner'; el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(12px + env(safe-area-inset-top));z-index:500;background:#0f2a33;border:1px solid var(--accent);border-radius:12px;padding:10px 14px;display:flex;gap:12px;align-items:center;box-shadow:0 10px 40px rgba(0,0,0,.5);max-width:92vw'; document.body.appendChild(el); }
+  el.innerHTML = IS_WEB ? `🎁 <span>Nouvelle version de l'application disponible.</span><button class="primary sm" onclick="webRefresh()">Actualiser</button>`
+    : `🎁 <span>Nouvelle version <b>${esc(j.version)}</b> disponible${j.by ? ` (publiée par ${esc(j.by)})` : ''}.</span><button class="primary sm" data-act="doUpdate">Mettre à jour</button><button class="sm ghost" onclick="this.parentNode.remove()">Plus tard</button>`;
+}
+async function webRefresh() {
+  try { const r = await navigator.serviceWorker?.getRegistration(); if (r) await r.update(); } catch (e) { /* */ }
+  try { const ks = await caches.keys(); await Promise.all(ks.map((k) => caches.delete(k))); } catch (e) { /* */ }
+  location.reload();
+}
+/* Téléphone : compare la version de la page en ligne avec celle affichée */
+async function webCheckUpdate() {
+  if (!IS_WEB) return;
+  try { const t = await (await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' })).text(); const m = t.match(/APP_VERSION = '([\d.]+)'/); if (m && vercmp(m[1], APP_VERSION) > 0) showUpdateBanner({ version: m[1] }); } catch (e) { /* hors ligne */ }
+}
+
+function updateCardHTML() {
+  if (IS_WEB) return '';
+  const g = ghRepo(); const L = localInfo(); const lt = updState.latest;
+  return `<div class="card"><h3>🔄 Mises à jour automatiques</h3>
+    <div class="small" style="line-height:1.6">Version installée : <b>${APP_VERSION}</b>${lt ? ` · dernière publiée : <b>${esc(lt.version)}</b>` : ''} <button class="sm" data-act="checkUpdateNow" style="margin-left:6px">Vérifier</button></div>
+    <div class="small muted" style="margin-top:6px">Les autres PC voient automatiquement qu'une nouvelle version est publiée et proposent « Mettre à jour » en un clic (les données ne sont pas touchées). Les téléphones et les techniciens ont la nouvelle version en rouvrant l'application.</div>
+    <div style="margin-top:14px"><b class="small">Publication automatique sur GitHub</b> ${canGhPublish() ? '<span class="tag ok">active</span>' : '<span class="tag">inactive</span>'}</div>
+    ${!g ? '<div class="alert warn small" style="margin-top:8px">Mettez d\'abord en place la page GitHub (Équipe → Réponses en 1 clic → Liens sans erreur Google).</div>' : `
+    <div class="small muted" style="margin-top:4px">Dépôt : <code>${esc(g.owner)}/${esc(g.repo)}</code>. Dès qu'une nouvelle version est installée sur ce PC, le pack (pages des techniciens, application téléphone, mise à jour des PC) est publié tout seul.</div>
+    <label class="f" style="margin-top:8px">Clé GitHub (gardée sur ce PC uniquement)<input type="password" data-ghtoken value="${esc(L.ghToken || '')}" placeholder="github_pat_…" autocomplete="off"></label>
+    <details class="small" style="margin-top:6px"><summary>Comment créer la clé (2 min)</summary><ol style="margin:6px 0 0 18px;line-height:1.7">
+      <li>Sur github.com (connecté) : photo en haut à droite → <b>Settings</b> → tout en bas <b>Developer settings</b> → <b>Personal access tokens → Fine-grained tokens</b> → <b>Generate new token</b>.</li>
+      <li>Nom : « Impulsion Prod » · Expiration : <b>No expiration</b> (ou 1 an).</li>
+      <li>Repository access : <b>Only select repositories</b> → choisissez <b>${esc(g.repo)}</b>.</li>
+      <li>Permissions → Repository permissions → <b>Contents : Read and write</b>.</li>
+      <li><b>Generate token</b>, copiez la clé (github_pat_…) et collez-la ci-dessus.</li></ol></details>
+    <div class="row" style="margin-top:10px"><button class="primary" data-act="ghPublishNow" ${canGhPublish() && !updState.publishing ? '' : 'disabled'}>⇧ Publier maintenant</button>
+      <span class="small muted" id="ghPubMsg">${esc(updState.pubMsg || (L.ghPublished ? `Dernière publication : v${L.ghPublished}${L.ghPublishedAt ? ' le ' + new Date(L.ghPublishedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}` : ''))}</span></div>`}
+  </div>`;
+}
+function refreshUpdCard() { const m = document.getElementById('ghPubMsg'); if (m && updState.pubMsg) m.textContent = updState.pubMsg; else if (m && ui.view === 'settings' && !editingNow()) render(); }
+const updateActions = {
+  checkUpdateNow() { checkUpdate(true); },
+  ghPublishNow() { ghPublishAll(true); },
+  async doUpdate() {
+    if (!window.desktop.update) return;
+    const j = updState.latest; const url = `${pagesBase()}maj/impulsion-prod.zip`;
+    const el = document.getElementById('updBanner'); if (el) el.innerHTML = '⏳ Téléchargement et installation de la mise à jour… (ne fermez pas)';
+    try {
+      await Store.saveNow(); const r = await window.desktop.update(url);
+      if (!r || !r.ok) throw new Error((r && r.error) || 'Mise à jour impossible');
+      if (el) el.innerHTML = `✔ Version ${esc(r.version || (j && j.version) || '')} installée — l'application redémarre…`;
+      setTimeout(() => { try { window.close(); } catch (e) { /* */ } }, 4000);
+    } catch (e) { if (el) el.innerHTML = `⚠ ${esc(e.message)} <button class="sm" onclick="this.parentNode.remove()">OK</button>`; }
+  }
+};
+function updChange(t) {
+  if (!t.matches || !t.matches('[data-ghtoken]')) return false;
+  localInfo().ghToken = t.value.trim(); Store.save(); render();
+  if (canGhPublish() && localInfo().ghPublished !== APP_VERSION) ghPublishAll(true);
+  return true;
+}
+/* Démarrage : publication auto (si nouvelle version installée ici), vérification des mises à jour */
+setTimeout(() => {
+  if (IS_WEB) { webCheckUpdate(); setInterval(webCheckUpdate, 30 * 60000); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') webCheckUpdate(); }); return; }
+  if (canGhPublish() && localInfo().ghPublished !== APP_VERSION) ghPublishAll(false);
+  checkUpdate(false); setInterval(() => checkUpdate(false), 30 * 60000);
+}, 15000);
+
+;
 /* js/views.js */
 /* =====================================================================
    VIEWS — interface, navigation, actions
@@ -6180,9 +6309,10 @@ function vSettings() {
     <label class="f">Vues dans les PDF<select data-set="pdfView"><option value="face" ${st.pdfView === 'face' ? 'selected' : ''}>Vue de face</option><option value="dos" ${st.pdfView === 'dos' ? 'selected' : ''}>Vue de dos</option><option value="both" ${st.pdfView !== 'face' && st.pdfView !== 'dos' ? 'selected' : ''}>Face + dos</option></select></label>
     <label class="f">Fond des PDF<select data-set="pdfLight"><option value="1" ${st.pdfLight !== false ? 'selected' : ''}>Blanc (impression)</option><option value="0" ${st.pdfLight === false ? 'selected' : ''}>Sombre</option></select></label></div>
     <label class="row small" style="margin-top:14px;gap:8px"><input type="checkbox" data-set-chk="reserveDevis" ${st.reserveDevis ? 'checked' : ''}>Les devis / options réservent le stock</label></div>
+  ${updateCardHTML()}
   <div class="card"><h3>Données & sauvegardes</h3>
     <div class="small muted">Fichier de données</div><div style="word-break:break-all;margin:4px 0 14px"><code>${esc(Store.path)}</code></div>
-    <div class="alert ok">Enregistrement automatique à chaque modification, sauvegarde horaire et à chaque démarrage (60 dernières conservées). Les mises à jour de l'application conservent et convertissent vos données automatiquement.</div>
+    <div class="alert ok">Enregistrement automatique à chaque modification, sauvegarde horaire et à chaque démarrage (60 dernières + une par jour pendant 120 jours). Les mises à jour de l'application conservent et convertissent vos données automatiquement.</div>
     ${IS_DESKTOP && Store.onedrive && window.desktop.moveData ? `<div class="alert warn" style="margin:8px 0">Vos données sont dans <b>OneDrive</b>, qui bloque parfois le fichier (« Erreur de sauvegarde »). Le partage Google fait déjà la copie en ligne : mieux vaut les garder sur ce PC. <button class="sm primary" data-act="moveDataLocal" style="margin-left:6px">📁 Mettre mes données sur ce PC</button></div>` : ''}
     <div class="row">${IS_DESKTOP ? `<button data-act="chooseFolder">📁 Changer de dossier (serveur, clé…)</button><button data-act="openFolder">Ouvrir le dossier</button>` : ''}
       <button data-act="backupNow">💾 Sauvegarder maintenant</button><button data-act="exportBackup">⇩ Exporter (.json)</button><button data-act="importBackup">⇧ Importer (.json)</button></div>
@@ -6464,7 +6594,7 @@ function exportPDF(p, screens) {
 
 /* =====================================================================
    ÉVÉNEMENTS GLOBAUX
-   ===================================================================== */Object.assign(actions, teamActions, replyActions, sceneActions, boardActions, boardMapActions, visualsActions, decoActions, linkActions, archActions, venueActions, prodFileActions, customActions, espaceActions, journalRecoverActions, { async moveDataLocal() { try { const r = await window.desktop.moveData(Store.serialize()); Store.path = r.path; Store.onedrive = false; document.getElementById('dataPath').textContent = r.path; closeModal(); await Store.saveNow(); render(); toast('Données déplacées sur ce PC ✔ ' + r.dir); } catch (e) { toast('Déplacement impossible : ' + e.message, 'bad'); } } }, roadmapActions, calActions, pagesActions, accountActions, syncActions);
+   ===================================================================== */Object.assign(actions, teamActions, replyActions, sceneActions, boardActions, boardMapActions, visualsActions, decoActions, linkActions, archActions, venueActions, prodFileActions, customActions, espaceActions, journalRecoverActions, updateActions, { async moveDataLocal() { try { const r = await window.desktop.moveData(Store.serialize()); Store.path = r.path; Store.onedrive = false; document.getElementById('dataPath').textContent = r.path; closeModal(); await Store.saveNow(); render(); toast('Données déplacées sur ce PC ✔ ' + r.dir); } catch (e) { toast('Déplacement impossible : ' + e.message, 'bad'); } } }, roadmapActions, calActions, pagesActions, accountActions, syncActions);
 
 function bindEvents() {
   document.addEventListener('click', (e) => {
@@ -6489,6 +6619,7 @@ function bindEvents() {
     if (archChange(t)) return;
     if (venueChange(t)) return;
     if (customChange(t)) return;
+    if (updChange(t)) return;
     if (boardMapChange(t)) return;
     if (visualsChange(t)) return;
     if (boardChange(t)) return;
