@@ -154,6 +154,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .g-head{display:flex;position:sticky;top:0;z-index:3;background:var(--panel2)}
 .g-day{flex:1;font-size:10px;color:var(--dim);text-align:center;border-left:1px solid var(--line);padding:4px 0;min-width:22px}
 .g-day.we{background:rgba(255,255,255,.02)}
+.g-we{position:absolute;top:0;bottom:0;background:rgba(255,255,255,.025);pointer-events:none}
+.g-sep{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);pointer-events:none}
 .g-day.today{color:var(--accent-hi);font-weight:700}
 .g-today{position:absolute;top:0;bottom:0;width:2px;background:var(--pink);z-index:1;box-shadow:0 0 8px var(--pink)}
 
@@ -416,7 +418,7 @@ const LOGO_DATA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAl8AAADyCAYAAAB
    CORE — données, sauvegarde, migrations, utilitaires
    ===================================================================== */
 const SCHEMA_VERSION = 3;
-const APP_VERSION = '3.7.0';
+const APP_VERSION = '3.8.0';
 const IS_DESKTOP = !!(window.desktop && window.desktop.isDesktop);
 const NATIVE_FILES = IS_DESKTOP && typeof window.desktop.saveFile === 'function';
 /* Version téléphone / navigateur (app.html hébergée sur GitHub) : données dans IndexedDB, synchronisées par le partage */
@@ -5910,7 +5912,7 @@ setTimeout(() => {
 const ui = {
   view: 'home', projectId: null, screenId: null, tab: 'config', tool: 'paint', sel: { elec: 0, data: 0 }, rear: false, zoom: false,
   v3d: { yaw: -0.55, pitch: 0.28, zoom: 1 }, stockFrom: todayISO(), stockTo: addDays(todayISO(), 30), cat: 'all', search: '',
-  planStart: addDays(todayISO(), -3), projFilter: 'actifs', edit: null, painting: false
+  planStart: addDays(todayISO(), -3), planView: (() => { try { return localStorage.getItem('ip-planView') || 'mois'; } catch (e) { return 'mois'; } })(), planAnchor: todayISO(), projFilter: 'actifs', edit: null, painting: false
 };
 const db = () => Store.db;
 const curProject = () => getProject(ui.projectId);
@@ -6033,24 +6035,64 @@ function vStock() {
 }
 
 /* ---------------- PLANNING ---------------- */
-function vPlanning() {
-  const days = 42; const start = ui.planStart; const end = addDays(start, days - 1); const t = todayISO();
-  const projs = db().projects.filter((p) => p.status !== 'annule' && p.start && overlaps(start, end, p.start, p.end)).sort((a, b) => a.start.localeCompare(b.start));
-  const dayIdx = (iso) => Math.round((new Date(iso + 'T00:00:00') - new Date(start + 'T00:00:00')) / 864e5);
-  const head = Array.from({ length: days }, (_, i) => { const d = addDays(start, i); const dt = new Date(d + 'T00:00:00'); const we = dt.getDay() === 0 || dt.getDay() === 6;
-    return `<div class="g-day ${we ? 'we' : ''} ${d === t ? 'today' : ''}">${dt.getDate() === 1 || i === 0 ? dt.toLocaleDateString('fr-FR', { month: 'short' }) + '<br>' : ''}${dt.getDate()}</div>`; }).join('');
-  const ti = dayIdx(t);
-  return `<div class="page-head"><div><h1>Planning</h1><div class="sub">Sorties et retours de matériel — ${fmtDate(start)} → ${fmtDate(end)}</div></div>
-    <div class="row"><button data-act="planShift" data-v="-14">◀ 2 sem.</button><button data-act="planToday">Aujourd'hui</button><button data-act="planShift" data-v="14">2 sem. ▶</button><button class="primary" data-act="newProject">✦ Nouveau projet</button></div></div>
-  <div class="card flat gantt"><div style="min-width:1100px">
-    <div class="g-head"><div class="g-label" style="background:var(--panel2)"><b>Projet</b></div><div style="display:flex;flex:1">${head}</div></div>
-    ${projs.length ? projs.map((p) => { const a = Math.max(0, dayIdx(p.start)), b = Math.min(days - 1, dayIdx(p.end || p.start)); const sh = projectShortages(p).length;
-      return `<div class="g-row"><div class="g-label"><b>${esc(p.name)}</b><span class="tiny muted">${esc(p.venue || p.client || '')}</span></div>
-      <div class="g-track">${ti >= 0 && ti < days ? `<div class="g-today" style="left:${(ti + .5) / days * 100}%"></div>` : ''}
-      <div class="g-bar ${p.status === 'devis' ? 'devis' : ''}" data-act="openProject" data-id="${p.id}" style="left:${a / days * 100}%;width:${(b - a + 1) / days * 100}%;background:${p.color}">${sh ? '⚠ ' : ''}${esc(p.name)} · ${p.screens.reduce((s, x) => s + panelCount(x), 0)} dalles · ${fmt(p.screens.reduce((a, x) => a + screenM2(x), 0), 1)} m²</div></div></div>`; }).join('')
-      : `<div class="empty"><div class="e">🗓️</div>Aucun projet sur cette période.</div>`}
-  </div></div><p class="tiny muted">Barres en pointillés : devis / options. ⚠ : il manque du matériel sur la période.</p>`;
+/* Planning : semaine / mois / année (barres des projets, aujourd'hui en surbrillance) */
+const mondayOf = (iso) => { const d = new Date(iso + 'T00:00:00'); const k = (d.getDay() + 6) % 7; return addDays(iso, -k); };
+function planRange() {
+  const v = ui.planView || 'mois'; const a = ui.planAnchor || todayISO(); const d = new Date(a + 'T00:00:00');
+  if (v === 'semaine') { const s = mondayOf(a); return { v, start: s, end: addDays(s, 6) }; }
+  if (v === 'annee') { const y = d.getFullYear(); return { v, start: `${y}-01-01`, end: `${y}-12-31` }; }
+  const y = d.getFullYear(), m = d.getMonth(); const last = new Date(y, m + 1, 0).getDate(); const mm = String(m + 1).padStart(2, '0');
+  return { v: 'mois', start: `${y}-${mm}-01`, end: `${y}-${mm}-${String(last).padStart(2, '0')}` };
 }
+function vPlanning() {
+  const R = planRange(); const { v, start, end } = R; const t = todayISO();
+  const days = Math.round((new Date(end + 'T00:00:00') - new Date(start + 'T00:00:00')) / 864e5) + 1;
+  const fc = ui.planCat || 'all';
+  const projs = db().projects.filter((p) => p.status !== 'annule' && p.start && overlaps(start, end, p.start, p.end || p.start) && (fc === 'all' || (fc === 'none' ? !catOf(p) : catOf(p) === fc)))
+    .sort((a, b) => a.start.localeCompare(b.start));
+  const dayIdx = (iso) => Math.round((new Date(iso + 'T00:00:00') - new Date(start + 'T00:00:00')) / 864e5);
+  const ti = dayIdx(t);
+  // en-têtes
+  let head = '';
+  if (v === 'annee') {
+    head = Array.from({ length: 12 }, (_, m) => { const d0 = new Date(start.slice(0, 4), m, 1); const n = new Date(d0.getFullYear(), m + 1, 0).getDate(); const iso = `${start.slice(0, 4)}-${String(m + 1).padStart(2, '0')}-01`;
+      const cur = t.slice(0, 7) === iso.slice(0, 7);
+      return `<div class="g-day ${cur ? 'today' : ''}" style="flex:${n};cursor:pointer;font-size:11px" data-act="planGoMonth" data-v="${iso}" title="Voir le mois">${d0.toLocaleDateString('fr-FR', { month: 'short' })}</div>`; }).join('');
+  } else {
+    head = Array.from({ length: days }, (_, i) => { const d = addDays(start, i); const dt = new Date(d + 'T00:00:00'); const we = dt.getDay() === 0 || dt.getDay() === 6;
+      const lab = v === 'semaine' ? `<b style="font-size:12px">${dt.toLocaleDateString('fr-FR', { weekday: 'short' })}</b><br>${dt.getDate()} ${dt.toLocaleDateString('fr-FR', { month: 'short' })}` : `${dt.toLocaleDateString('fr-FR', { weekday: 'narrow' })}<br>${dt.getDate()}`;
+      return `<div class="g-day ${we ? 'we' : ''} ${d === t ? 'today' : ''}" style="${v === 'semaine' ? 'padding:8px 0' : ''}">${lab}</div>`; }).join('');
+  }
+  // fonds : week-ends (semaine/mois), séparateurs de mois (année)
+  const bg = v === 'annee'
+    ? Array.from({ length: 11 }, (_, m) => { const iso = `${start.slice(0, 4)}-${String(m + 2).padStart(2, '0')}-01`; return `<div class="g-sep" style="left:${dayIdx(iso) / days * 100}%"></div>`; }).join('')
+    : Array.from({ length: days }, (_, i) => { const dt = new Date(addDays(start, i) + 'T00:00:00'); return dt.getDay() === 0 || dt.getDay() === 6 ? `<div class="g-we" style="left:${i / days * 100}%;width:${100 / days}%"></div>` : ''; }).join('');
+  const title = v === 'semaine' ? `Semaine ${isoWeek(start)} — ${fmtDate(start)} → ${fmtDate(end)}` : v === 'annee' ? `Année ${start.slice(0, 4)}` : (() => { const x = new Date(start + 'T00:00:00').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }); return x.charAt(0).toUpperCase() + x.slice(1); })();
+  const step = { semaine: 'sem.', mois: 'mois', annee: 'an' }[v];
+  const crewTxt = (p) => { const c = (p.crew || []).filter((r) => r.status !== 'indispo'); return c.length ? `👷 ${c.filter((r) => r.status === 'valide').length}/${c.length}` : ''; };
+  const rows = projs.map((p) => {
+    const a = Math.max(0, dayIdx(p.start)), b = Math.min(days - 1, dayIdx(p.end || p.start)); const sh = projectShortages(p).length;
+    const nD = p.screens.reduce((s, x) => s + panelCount(x), 0); const wide = (b - a + 1) / days > (v === 'annee' ? 0.08 : 0.18);
+    const txt = `${sh ? '⚠ ' : ''}${esc(p.name)}${wide ? ` · ${nD} dalles${v !== 'annee' && crewTxt(p) ? ' · ' + crewTxt(p) : ''}` : ''}`;
+    return `<div class="g-row"><div class="g-label"><b>${catOf(p) ? PROJECT_CATS[catOf(p)].ic + ' ' : ''}${esc(p.name)}</b><span class="tiny muted">${fmtDate(p.start)}${p.end && p.end !== p.start ? ' → ' + fmtDate(p.end) : ''}${p.venue ? ' · ' + esc(p.venue) : ''}</span></div>
+      <div class="g-track">${bg}${ti >= 0 && ti < days ? `<div class="g-today" style="left:${(ti + .5) / days * 100}%"></div>` : ''}
+      <div class="g-bar ${p.status === 'devis' ? 'devis' : ''}" data-act="openProject" data-id="${p.id}" title="${esc(p.name)} — ${fmtDate(p.start)} → ${fmtDate(p.end || p.start)}${p.venue ? ' · ' + esc(p.venue) : ''}" style="left:${a / days * 100}%;width:${(b - a + 1) / days * 100}%;background:${p.color}">${txt}</div></div></div>`;
+  }).join('');
+  // année : récapitulatif par mois
+  const recap = v === 'annee' ? `<div class="grid g4" style="margin-top:14px">${Array.from({ length: 12 }, (_, m) => { const ms = `${start.slice(0, 4)}-${String(m + 1).padStart(2, '0')}`; const L = projs.filter((p) => p.start.slice(0, 7) <= ms && (p.end || p.start).slice(0, 7) >= ms);
+      return `<div class="card" style="padding:12px;cursor:pointer" data-act="planGoMonth" data-v="${ms}-01"><b style="text-transform:capitalize">${new Date(ms + '-01T00:00:00').toLocaleDateString('fr-FR', { month: 'long' })}</b> <span class="tag ${L.length ? 'info' : ''}">${L.length}</span>
+      <div class="tiny muted" style="margin-top:6px;line-height:1.5">${L.slice(0, 4).map((p) => `<span style="color:${p.color}">●</span> ${esc(p.name)}`).join('<br>')}${L.length > 4 ? `<br>+ ${L.length - 4} autre(s)` : ''}</div></div>`; }).join('')}</div>` : '';
+  return `<div class="page-head"><div><h1>Planning</h1><div class="sub">${title} · ${projs.length} projet(s)</div></div>
+    <div class="row"><div class="seg">${[['semaine', 'Semaine'], ['mois', 'Mois'], ['annee', 'Année']].map(([k, l]) => `<button class="${v === k ? 'on' : ''}" data-act="planView" data-v="${k}">${l}</button>`).join('')}</div>
+      <button data-act="planShift" data-v="-1">◀</button><button data-act="planToday">Aujourd'hui</button><button data-act="planShift" data-v="1">▶</button>
+      <select data-ui-sel="planCat" title="Catégorie"><option value="all">Toutes catégories</option>${Object.entries(PROJECT_CATS).map(([k, c]) => `<option value="${k}" ${fc === k ? 'selected' : ''}>${c.ic} ${c.l}</option>`).join('')}<option value="none" ${fc === 'none' ? 'selected' : ''}>Sans catégorie</option></select>
+      <button class="primary" data-act="newProject">✦ Nouveau projet</button></div></div>
+  <div class="card flat gantt"><div style="min-width:${v === 'semaine' ? 860 : v === 'annee' ? 900 : 1050}px">
+    <div class="g-head"><div class="g-label" style="background:var(--panel2)"><b>Projet</b></div><div style="display:flex;flex:1">${head}</div></div>
+    ${projs.length ? rows : `<div class="empty"><div class="e">🗓️</div>Aucun projet ${v === 'semaine' ? 'cette semaine' : v === 'annee' ? 'cette année' : 'ce mois-ci'}.</div>`}
+  </div></div>${recap}<p class="tiny muted">Barres en pointillés : devis / options. ⚠ : il manque du matériel sur la période. 👷 validés / sollicités. ${v === 'annee' ? 'Cliquez sur un mois pour le détail.' : ''}</p>`;
+}
+function isoWeek(iso) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7)); const w1 = new Date(d.getFullYear(), 0, 4); return 1 + Math.round(((d - w1) / 864e5 - 3 + ((w1.getDay() + 6) % 7)) / 7); }
 
 /* ---------------- PROJETS ---------------- */
 function vProjects() {
@@ -6463,8 +6505,12 @@ const actions = {
     ui.sel[k] = 0; Store.save(); render();
   },
   palette(el) { const pm = curScreen().pixmap; if (el.dataset.v === 'swap') [pm.c1, pm.c2] = [pm.c2, pm.c1]; else { const pl = PALETTES[+el.dataset.v]; pm.c1 = pl[1]; pm.c2 = pl[2]; } Store.save(); render(); },
-  planShift(el) { ui.planStart = addDays(ui.planStart, num(el.dataset.v)); render(); },
-  planToday() { ui.planStart = addDays(todayISO(), -3); render(); },
+  planShift(el) { const k = num(el.dataset.v); const v = ui.planView || 'mois'; const a = ui.planAnchor || todayISO(); const d = new Date(a + 'T00:00:00');
+    if (v === 'semaine') ui.planAnchor = addDays(a, 7 * k); else if (v === 'annee') ui.planAnchor = `${d.getFullYear() + k}-01-01`; else { const n = new Date(d.getFullYear(), d.getMonth() + k, 1); ui.planAnchor = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-01`; }
+    render(); },
+  planToday() { ui.planAnchor = todayISO(); render(); },
+  planView(el) { ui.planView = el.dataset.v; try { localStorage.setItem('ip-planView', ui.planView); } catch (e) { /* */ } render(); },
+  planGoMonth(el) { ui.planView = 'mois'; ui.planAnchor = el.dataset.v; render(); },
   // ---- exports ----
   exElecFront() { exportPlanPNG('elec', false); }, exElecRear() { exportPlanPNG('elec', true); },
   exDataFront() { exportPlanPNG('data', false); }, exDataRear() { exportPlanPNG('data', true); },
